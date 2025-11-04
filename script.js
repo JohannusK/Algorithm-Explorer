@@ -48,6 +48,23 @@ const pathStepCountOutput = document.getElementById("path-step-count");
 const sortingStatsSection = document.querySelector('.stats[data-mode="sorting"]');
 const searchingStatsSection = document.querySelector('.stats[data-mode="searching"]');
 const pathfindingStatsSection = document.querySelector('.stats[data-mode="pathfinding"]');
+const mdpStatsSection = document.querySelector('.stats[data-mode="mdp"]');
+
+const mdpAlgorithmSelect = document.getElementById("mdp-algorithm-select");
+const mdpScenarioSelect = document.getElementById("mdp-scenario-select");
+const discountInput = document.getElementById("discount-input");
+const discountValue = document.getElementById("discount-value");
+const thresholdInput = document.getElementById("threshold-input");
+const thresholdValue = document.getElementById("threshold-value");
+const maxIterationsInput = document.getElementById("max-iterations-input");
+const maxIterationsValue = document.getElementById("max-iterations-value");
+const clearRewardsBtn = document.getElementById("clear-rewards-btn");
+const simulateEpisodeBtn = document.getElementById("simulate-episode-btn");
+
+const mdpIterationsOutput = document.getElementById("mdp-iterations");
+const mdpMaxDeltaOutput = document.getElementById("mdp-max-delta");
+const mdpConvergedOutput = document.getElementById("mdp-converged");
+const mdpAvgRewardOutput = document.getElementById("mdp-avg-reward");
 
 const growthNEl = document.getElementById("growth-n");
 const growthBarBest = document.getElementById("growth-bar-best");
@@ -87,6 +104,22 @@ const state = {
       nodesVisited: 0,
       steps: 0,
     },
+  },
+  mdp: {
+    discount: 0.9,
+    threshold: 0.01,
+    maxIterations: 100,
+    gridValues: [],        // 2D array of state values
+    gridPolicy: [],        // 2D array of optimal actions
+    gridRewards: [],       // 2D array of rewards
+    terminalStates: new Set(),
+    result: {
+      converged: false,
+      iterations: 0,
+      maxDelta: Infinity,
+      avgReward: 0,
+      episodePath: []
+    }
   },
 };
 
@@ -246,6 +279,15 @@ const pathfindingAlgorithms = {
     description:
       "Always expands the node that appears closest to the goal based on heuristic. Fast but doesn't guarantee the shortest path.",
     run: greedyPathfinding,
+  },
+};
+
+const mdpAlgorithms = {
+  valueIteration: {
+    name: "Value Iteration",
+    description:
+      "Dynamic programming algorithm that iteratively computes optimal state values using the Bellman equation, converging to the optimal policy.",
+    run: valueIteration,
   },
 };
 
@@ -550,6 +592,7 @@ function invalidateLastRun() {
 function getAlgorithmLibrary(mode = state.mode) {
   if (mode === "pathfinding") return pathfindingAlgorithms;
   if (mode === "searching") return searchingAlgorithms;
+  if (mode === "mdp") return mdpAlgorithms;
   return sortingAlgorithms;
 }
 
@@ -752,10 +795,12 @@ function updateActionButtonState(running = state.running) {
   if (running) {
     if (state.mode === "pathfinding") text = "Finding Path...";
     else if (state.mode === "searching") text = "Searching...";
+    else if (state.mode === "mdp") text = "Computing...";
     else text = "Sorting...";
   } else {
     if (state.mode === "pathfinding") text = "Start Pathfinding";
     else if (state.mode === "searching") text = "Start Searching";
+    else if (state.mode === "mdp") text = "Run Value Iteration";
     else text = "Start Sorting";
   }
   actionBtn.textContent = text;
@@ -764,6 +809,8 @@ function updateActionButtonState(running = state.running) {
 function updateRandomizeButtonState() {
   if (state.mode === "pathfinding") {
     randomizeBtn.textContent = "Regenerate Maze";
+  } else if (state.mode === "mdp") {
+    randomizeBtn.textContent = "Randomize Rewards";
   } else {
     randomizeBtn.textContent = "Shuffle";
   }
@@ -2255,6 +2302,11 @@ function generateGrid(size = state.grid.size) {
         heuristic: 0,
         fScore: Infinity,
         parent: null,
+        // MDP properties
+        reward: -1,        // Default step cost
+        value: 0,          // State value
+        policy: null,      // Optimal action: 'up', 'down', 'left', 'right'
+        isTerminal: false, // Terminal/absorbing state
       };
     }
   }
@@ -2313,20 +2365,54 @@ function renderGrid() {
 
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
+      const cellData = state.grid.cells[row][col];
       const cell = document.createElement("div");
       cell.className = "grid-cell";
       cell.dataset.row = row;
       cell.dataset.col = col;
 
-      if (state.grid.start && state.grid.start.row === row && state.grid.start.col === col) {
-        cell.classList.add("start");
-      } else if (state.grid.end && state.grid.end.row === row && state.grid.end.col === col) {
-        cell.classList.add("end");
-      } else if (state.grid.cells[row][col].isWall) {
-        cell.classList.add("wall");
+      if (state.mode === "mdp") {
+        // MDP mode: show rewards, values, and policy
+        if (cellData.isWall) {
+          cell.classList.add("wall");
+        } else if (cellData.isTerminal && cellData.reward > 0) {
+          cell.classList.add("goal");
+        } else if (cellData.reward < -1) {
+          cell.classList.add("penalty");
+        }
+
+        // Show value and policy
+        const valueSpan = document.createElement("span");
+        valueSpan.className = "cell-value";
+        valueSpan.textContent = cellData.value.toFixed(1);
+        cell.appendChild(valueSpan);
+
+        if (cellData.policy && !cellData.isTerminal) {
+          const policyArrow = document.createElement("span");
+          policyArrow.className = `policy-arrow policy-${cellData.policy}`;
+          policyArrow.textContent = {
+            up: "↑",
+            down: "↓",
+            left: "←",
+            right: "→"
+          }[cellData.policy] || "";
+          cell.appendChild(policyArrow);
+        }
+
+        cell.addEventListener("click", () => toggleMDPCell(row, col));
+      } else {
+        // Pathfinding mode: show start/end/walls
+        if (state.grid.start && state.grid.start.row === row && state.grid.start.col === col) {
+          cell.classList.add("start");
+        } else if (state.grid.end && state.grid.end.row === row && state.grid.end.col === col) {
+          cell.classList.add("end");
+        } else if (cellData.isWall) {
+          cell.classList.add("wall");
+        }
+
+        cell.addEventListener("click", () => toggleWall(row, col));
       }
 
-      cell.addEventListener("click", () => toggleWall(row, col));
       gridContainer.appendChild(cell);
     }
   }
@@ -2340,6 +2426,39 @@ function toggleWall(row, col) {
   state.grid.cells[row][col].isWall = !state.grid.cells[row][col].isWall;
   const cellEl = gridContainer.querySelector(`[data-row="${row}"][data-col="${col}"]`);
   cellEl.classList.toggle("wall");
+}
+
+function toggleMDPCell(row, col) {
+  if (state.running) return;
+
+  const cell = state.grid.cells[row][col];
+
+  // Cycle through states: normal → goal → penalty → wall → normal
+  if (cell.isWall) {
+    // Wall → Normal
+    cell.isWall = false;
+    cell.reward = -1;
+    cell.isTerminal = false;
+  } else if (cell.isTerminal && cell.reward > 0) {
+    // Goal → Penalty
+    cell.reward = -50;
+    cell.isTerminal = false;
+  } else if (cell.reward < -1) {
+    // Penalty → Wall
+    cell.reward = -1;
+    cell.isWall = true;
+    cell.isTerminal = false;
+  } else {
+    // Normal → Goal
+    cell.reward = 100;
+    cell.isTerminal = true;
+  }
+
+  // Reset value and policy when cell type changes
+  cell.value = 0;
+  cell.policy = null;
+  resetMDPStats();
+  renderGrid();
 }
 
 function clearWalls() {
@@ -2764,6 +2883,154 @@ async function greedyPathfinding() {
   updatePathOutputs();
 }
 
+// MDP Algorithms
+async function valueIteration() {
+  resetMDPStats();
+
+  const size = state.grid.size;
+  const gamma = state.mdp.discount;
+  const theta = state.mdp.threshold;
+  const maxIter = state.mdp.maxIterations;
+
+  // Initialize values
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      state.grid.cells[row][col].value = 0;
+      state.grid.cells[row][col].policy = null;
+    }
+  }
+
+  let iterations = 0;
+  let delta = Infinity;
+
+  // Value Iteration loop
+  while (delta >= theta && iterations < maxIter) {
+    delta = 0;
+    iterations++;
+
+    // Update each cell
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const cell = state.grid.cells[row][col];
+
+        // Skip walls and terminal states
+        if (cell.isWall || cell.isTerminal) continue;
+
+        const oldValue = cell.value;
+
+        // Get neighbors (possible next states)
+        const actions = [
+          { dir: "up", row: row - 1, col: col },
+          { dir: "down", row: row + 1, col: col },
+          { dir: "left", row: row, col: col - 1 },
+          { dir: "right", row: row, col: col + 1 },
+        ];
+
+        let maxValue = -Infinity;
+
+        // Bellman update: V(s) = R(s) + γ * max_a(V(s'))
+        for (const action of actions) {
+          const nextRow = action.row;
+          const nextCol = action.col;
+
+          // Check bounds
+          if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) {
+            // Out of bounds - stay in place with step cost
+            const value = cell.reward + gamma * oldValue;
+            maxValue = Math.max(maxValue, value);
+            continue;
+          }
+
+          const nextCell = state.grid.cells[nextRow][nextCol];
+
+          // Check if next cell is a wall
+          if (nextCell.isWall) {
+            // Hit wall - stay in place with step cost
+            const value = cell.reward + gamma * oldValue;
+            maxValue = Math.max(maxValue, value);
+          } else {
+            // Valid move
+            const value = cell.reward + gamma * nextCell.value;
+            maxValue = Math.max(maxValue, value);
+          }
+        }
+
+        cell.value = maxValue;
+        delta = Math.max(delta, Math.abs(oldValue - maxValue));
+      }
+    }
+
+    // Update stats and visualize
+    state.mdp.result.iterations = iterations;
+    state.mdp.result.maxDelta = delta;
+    mdpIterationsOutput.textContent = iterations;
+    mdpMaxDeltaOutput.textContent = delta.toFixed(4);
+
+    renderGrid();
+    await pause();
+  }
+
+  // Extract policy
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const cell = state.grid.cells[row][col];
+
+      // Skip walls and terminal states
+      if (cell.isWall || cell.isTerminal) continue;
+
+      const actions = [
+        { dir: "up", row: row - 1, col: col },
+        { dir: "down", row: row + 1, col: col },
+        { dir: "left", row: row, col: col - 1 },
+        { dir: "right", row: row, col: col + 1 },
+      ];
+
+      let bestAction = null;
+      let bestValue = -Infinity;
+
+      for (const action of actions) {
+        const nextRow = action.row;
+        const nextCol = action.col;
+
+        // Check bounds
+        if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) {
+          const value = cell.reward + gamma * cell.value;
+          if (value > bestValue) {
+            bestValue = value;
+            bestAction = action.dir;
+          }
+          continue;
+        }
+
+        const nextCell = state.grid.cells[nextRow][nextCol];
+
+        if (nextCell.isWall) {
+          const value = cell.reward + gamma * cell.value;
+          if (value > bestValue) {
+            bestValue = value;
+            bestAction = action.dir;
+          }
+        } else {
+          const value = cell.reward + gamma * nextCell.value;
+          if (value > bestValue) {
+            bestValue = value;
+            bestAction = action.dir;
+          }
+        }
+      }
+
+      cell.policy = bestAction;
+    }
+  }
+
+  // Mark as converged
+  const converged = delta < theta;
+  state.mdp.result.converged = converged;
+  mdpConvergedOutput.textContent = converged ? "Yes" : "No";
+
+  renderGrid();
+}
+
 async function runPathfinding() {
   if (state.running) return;
 
@@ -2782,6 +3049,215 @@ async function runPathfinding() {
   }
 }
 
+// MDP Functions
+function resetMDPStats() {
+  state.mdp.result = {
+    converged: false,
+    iterations: 0,
+    maxDelta: Infinity,
+    avgReward: 0,
+    episodePath: []
+  };
+  mdpIterationsOutput.textContent = "0";
+  mdpMaxDeltaOutput.textContent = "—";
+  mdpConvergedOutput.textContent = "No";
+  mdpAvgRewardOutput.textContent = "—";
+}
+
+function clearMDPRewards() {
+  if (state.running) return;
+
+  for (let row = 0; row < state.grid.size; row++) {
+    for (let col = 0; col < state.grid.size; col++) {
+      const cell = state.grid.cells[row][col];
+      cell.reward = -1;
+      cell.value = 0;
+      cell.policy = null;
+      cell.isTerminal = false;
+      cell.isWall = false;
+    }
+  }
+
+  resetMDPStats();
+  renderGrid();
+}
+
+function randomizeMDPRewards() {
+  if (state.running) return;
+
+  clearMDPRewards();
+
+  // Add some random goal states (high rewards)
+  const numGoals = randomInt(1, 3);
+  for (let i = 0; i < numGoals; i++) {
+    const row = randomInt(0, state.grid.size - 1);
+    const col = randomInt(0, state.grid.size - 1);
+    const cell = state.grid.cells[row][col];
+    cell.reward = randomInt(50, 100);
+    cell.isTerminal = true;
+  }
+
+  // Add some random penalty states (negative rewards)
+  const numPenalties = randomInt(2, 5);
+  for (let i = 0; i < numPenalties; i++) {
+    const row = randomInt(0, state.grid.size - 1);
+    const col = randomInt(0, state.grid.size - 1);
+    const cell = state.grid.cells[row][col];
+    if (!cell.isTerminal) {
+      cell.reward = randomInt(-50, -10);
+    }
+  }
+
+  renderGrid();
+}
+
+function loadMDPScenario(scenarioKey) {
+  if (state.running) return;
+
+  clearMDPRewards();
+  const size = state.grid.size;
+
+  if (scenarioKey === "default") {
+    // Simple grid with goal at bottom-right
+    const goalCell = state.grid.cells[size - 1][size - 1];
+    goalCell.reward = 100;
+    goalCell.isTerminal = true;
+  } else if (scenarioKey === "cliff") {
+    // Cliff world: bottom row is penalty except start and goal
+    const goalCell = state.grid.cells[size - 1][size - 1];
+    goalCell.reward = 100;
+    goalCell.isTerminal = true;
+
+    for (let col = 1; col < size - 1; col++) {
+      const cell = state.grid.cells[size - 1][col];
+      cell.reward = -50;
+      cell.isTerminal = true;
+    }
+  } else if (scenarioKey === "fourrooms") {
+    // Create four rooms with walls and a goal
+    const mid = Math.floor(size / 2);
+
+    // Vertical wall
+    for (let row = 0; row < size; row++) {
+      if (row !== mid) {
+        state.grid.cells[row][mid].isWall = true;
+      }
+    }
+
+    // Horizontal wall
+    for (let col = 0; col < size; col++) {
+      if (col !== mid) {
+        state.grid.cells[mid][col].isWall = true;
+      }
+    }
+
+    // Goal in one corner
+    const goalCell = state.grid.cells[size - 1][size - 1];
+    goalCell.reward = 100;
+    goalCell.isTerminal = true;
+    goalCell.isWall = false;
+  } else if (scenarioKey === "custom") {
+    // Leave empty for user to customize
+  }
+
+  renderGrid();
+}
+
+async function runMDP() {
+  if (state.running) return;
+
+  const algorithmKey = mdpAlgorithmSelect.value;
+  const algorithm = mdpAlgorithms[algorithmKey];
+  if (!algorithm) return;
+
+  state.running = true;
+  toggleControls(true);
+  updateActionButtonState(true);
+
+  try {
+    await algorithm.run();
+  } finally {
+    state.running = false;
+    toggleControls(false);
+    updateActionButtonState(false);
+  }
+}
+
+async function simulateEpisode() {
+  if (state.running) return;
+  if (!state.mdp.result.converged) {
+    alert("Please run Value Iteration first to compute the policy!");
+    return;
+  }
+
+  state.running = true;
+
+  // Find a non-terminal, non-wall start position
+  let startRow = 0;
+  let startCol = 0;
+  for (let row = 0; row < state.grid.size; row++) {
+    for (let col = 0; col < state.grid.size; col++) {
+      const cell = state.grid.cells[row][col];
+      if (!cell.isWall && !cell.isTerminal) {
+        startRow = row;
+        startCol = col;
+        break;
+      }
+    }
+  }
+
+  const path = [];
+  let currentRow = startRow;
+  let currentCol = startCol;
+  const maxSteps = state.grid.size * state.grid.size; // Prevent infinite loops
+  let steps = 0;
+
+  while (steps < maxSteps) {
+    const cell = state.grid.cells[currentRow][currentCol];
+    path.push({ row: currentRow, col: currentCol });
+
+    // Visualize current position
+    renderGrid();
+    const gridCells = gridContainer.querySelectorAll(".grid-cell");
+    const index = currentRow * state.grid.size + currentCol;
+    gridCells[index]?.classList.add("visiting");
+
+    await pause();
+
+    if (cell.isTerminal) {
+      break;
+    }
+
+    const policy = cell.policy;
+    if (!policy) break;
+
+    // Move according to policy
+    if (policy === "up" && currentRow > 0) currentRow--;
+    else if (policy === "down" && currentRow < state.grid.size - 1) currentRow++;
+    else if (policy === "left" && currentCol > 0) currentCol--;
+    else if (policy === "right" && currentCol < state.grid.size - 1) currentCol++;
+    else break; // No valid move
+
+    // Check if next cell is wall
+    if (state.grid.cells[currentRow][currentCol].isWall) {
+      break;
+    }
+
+    steps++;
+  }
+
+  state.mdp.result.episodePath = path;
+  state.running = false;
+
+  // Highlight the path
+  renderGrid();
+  const gridCells = gridContainer.querySelectorAll(".grid-cell");
+  path.forEach(({ row, col }) => {
+    const index = row * state.grid.size + col;
+    gridCells[index]?.classList.add("path");
+  });
+}
+
 function setMode(mode, { force = false } = {}) {
   if (!force && state.running) {
     return;
@@ -2789,7 +3265,7 @@ function setMode(mode, { force = false } = {}) {
   if (!force && mode === state.mode) {
     return;
   }
-  if (mode !== "sorting" && mode !== "searching" && mode !== "pathfinding") {
+  if (mode !== "sorting" && mode !== "searching" && mode !== "pathfinding" && mode !== "mdp") {
     return;
   }
 
@@ -2803,11 +3279,12 @@ function setMode(mode, { force = false } = {}) {
   sortingStatsSection.hidden = mode !== "sorting";
   searchingStatsSection.hidden = mode !== "searching";
   pathfindingStatsSection.hidden = mode !== "pathfinding";
+  mdpStatsSection.hidden = mode !== "mdp";
   updateActionButtonState();
   updateRandomizeButtonState();
 
-  // Update size slider for pathfinding mode
-  if (mode === "pathfinding") {
+  // Update size slider for pathfinding and MDP modes
+  if (mode === "pathfinding" || mode === "mdp") {
     const maxDistance = (state.grid.size - 1) * 2; // Max Manhattan distance in NxN grid
     sizeInput.min = "5";
     sizeInput.max = String(maxDistance);
@@ -2828,11 +3305,15 @@ function setMode(mode, { force = false } = {}) {
   resetPathResult();
   invalidateLastRun();
 
-  if (mode === "pathfinding") {
+  if (mode === "pathfinding" || mode === "mdp") {
     arrayContainer.hidden = true;
     gridContainer.hidden = false;
     if (state.grid.cells.length === 0) {
       generateGrid(state.grid.size);
+    }
+    // Load default scenario for MDP mode
+    if (mode === "mdp") {
+      loadMDPScenario(mdpScenarioSelect.value);
     }
   } else {
     arrayContainer.hidden = false;
@@ -2859,6 +3340,8 @@ function setMode(mode, { force = false } = {}) {
     key = pathfindingAlgorithmSelect.value;
   } else if (mode === "searching") {
     key = searchAlgorithmSelect.value;
+  } else if (mode === "mdp") {
+    key = mdpAlgorithmSelect.value;
   } else {
     key = sortingAlgorithmSelect.value;
   }
@@ -2919,6 +3402,8 @@ randomizeBtn.addEventListener("click", () => {
   if (state.mode === "pathfinding") {
     const density = Number(wallDensityInput.value);
     generateRandomWalls(density);
+  } else if (state.mode === "mdp") {
+    randomizeMDPRewards();
   } else {
     generateArray(Number(sizeInput.value));
   }
@@ -2929,6 +3414,8 @@ actionBtn.addEventListener("click", () => {
     runSort();
   } else if (state.mode === "searching") {
     runSearch();
+  } else if (state.mode === "mdp") {
+    runMDP();
   } else if (state.mode === "pathfinding") {
     runPathfinding();
   }
@@ -3023,6 +3510,56 @@ if (generateMazeBtn) {
   generateMazeBtn.addEventListener("click", () => {
     const density = Number(wallDensityInput.value);
     generateRandomWalls(density);
+  });
+}
+
+// MDP Control Listeners
+if (discountInput) {
+  discountInput.addEventListener("input", () => {
+    discountValue.textContent = Number(discountInput.value).toFixed(2);
+    state.mdp.discount = Number(discountInput.value);
+  });
+}
+
+if (thresholdInput) {
+  thresholdInput.addEventListener("input", () => {
+    thresholdValue.textContent = Number(thresholdInput.value).toFixed(3);
+    state.mdp.threshold = Number(thresholdInput.value);
+  });
+}
+
+if (maxIterationsInput) {
+  maxIterationsInput.addEventListener("input", () => {
+    maxIterationsValue.textContent = maxIterationsInput.value;
+    state.mdp.maxIterations = Number(maxIterationsInput.value);
+  });
+}
+
+if (mdpAlgorithmSelect) {
+  mdpAlgorithmSelect.addEventListener("change", () => {
+    if (state.running) return;
+    invalidateLastRun();
+    updateAlgorithmDetails(mdpAlgorithmSelect.value, "mdp");
+  });
+}
+
+if (mdpScenarioSelect) {
+  mdpScenarioSelect.addEventListener("change", () => {
+    if (state.running) return;
+    loadMDPScenario(mdpScenarioSelect.value);
+  });
+}
+
+if (clearRewardsBtn) {
+  clearRewardsBtn.addEventListener("click", () => {
+    clearMDPRewards();
+  });
+}
+
+if (simulateEpisodeBtn) {
+  simulateEpisodeBtn.addEventListener("click", () => {
+    if (state.running) return;
+    simulateEpisode();
   });
 }
 

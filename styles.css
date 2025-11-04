@@ -498,7 +498,60 @@ button:hover:not(:disabled) {
   }
 }
 
-.app[data-mode="pathfinding"] .array {
+/* MDP-specific cell styles */
+.grid-cell.goal {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.9));
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+.grid-cell.penalty {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9));
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.cell-value {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.policy-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: rgba(251, 191, 36, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.policy-up {
+  transform: translate(-50%, -55%);
+}
+
+.policy-down {
+  transform: translate(-50%, -45%);
+}
+
+.policy-left {
+  transform: translate(-55%, -50%);
+}
+
+.policy-right {
+  transform: translate(-45%, -50%);
+}
+
+.app[data-mode="pathfinding"] .array,
+.app[data-mode="mdp"] .array {
   display: none;
 }
 
@@ -507,7 +560,8 @@ button:hover:not(:disabled) {
   display: none;
 }
 
-.app[data-mode="pathfinding"] .grid {
+.app[data-mode="pathfinding"] .grid,
+.app[data-mode="mdp"] .grid {
   display: grid !important;
 }
 

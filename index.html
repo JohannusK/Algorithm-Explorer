@@ -15,6 +15,7 @@
         <button type="button" class="tab active" data-tab="sorting" role="tab" aria-selected="true">Sorting</button>
         <button type="button" class="tab" data-tab="searching" role="tab" aria-selected="false">Searching</button>
         <button type="button" class="tab" data-tab="pathfinding" role="tab" aria-selected="false">Pathfinding</button>
+        <button type="button" class="tab" data-tab="mdp" role="tab" aria-selected="false">MDP/RL</button>
       </nav>
     </header>
 
@@ -104,6 +105,36 @@
         <input id="wall-density-input" type="range" min="0" max="40" value="20">
         <span id="wall-density-value" aria-live="polite">20%</span>
       </div>
+      <div class="control" data-mode="mdp">
+        <label for="mdp-algorithm-select">Algorithm</label>
+        <select id="mdp-algorithm-select">
+          <option value="valueIteration">Value Iteration</option>
+        </select>
+      </div>
+      <div class="control" data-mode="mdp">
+        <label for="mdp-scenario-select">Scenario</label>
+        <select id="mdp-scenario-select">
+          <option value="default">Default Grid</option>
+          <option value="cliff">Cliff World</option>
+          <option value="fourrooms">Four Rooms</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="control" data-mode="mdp">
+        <label for="discount-input">Discount (γ)</label>
+        <input id="discount-input" type="range" min="0" max="1" step="0.05" value="0.9">
+        <span id="discount-value" aria-live="polite">0.90</span>
+      </div>
+      <div class="control" data-mode="mdp">
+        <label for="threshold-input">Threshold (δ)</label>
+        <input id="threshold-input" type="range" min="0.001" max="0.5" step="0.001" value="0.01">
+        <span id="threshold-value" aria-live="polite">0.010</span>
+      </div>
+      <div class="control" data-mode="mdp">
+        <label for="max-iterations-input">Max Iterations</label>
+        <input id="max-iterations-input" type="range" min="10" max="500" step="10" value="100">
+        <span id="max-iterations-value" aria-live="polite">100</span>
+      </div>
       <div class="button-group">
         <button id="randomize-btn" type="button">Shuffle</button>
         <button id="action-btn" type="button">Start Sorting</button>
@@ -111,6 +142,10 @@
       <div class="button-group" data-mode="pathfinding">
         <button id="clear-walls-btn" type="button">Clear Walls</button>
         <button id="generate-maze-btn" type="button">Generate Maze</button>
+      </div>
+      <div class="button-group" data-mode="mdp">
+        <button id="clear-rewards-btn" type="button">Clear Grid</button>
+        <button id="simulate-episode-btn" type="button">Simulate Episode</button>
       </div>
     </section>
 
@@ -168,6 +203,25 @@
       <div class="stat">
         <span class="label">Steps</span>
         <output id="path-step-count">0</output>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="MDP statistics" data-mode="mdp" hidden>
+      <div class="stat">
+        <span class="label">Iterations</span>
+        <output id="mdp-iterations">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Max Delta</span>
+        <output id="mdp-max-delta">—</output>
+      </div>
+      <div class="stat">
+        <span class="label">Converged</span>
+        <output id="mdp-converged">No</output>
+      </div>
+      <div class="stat">
+        <span class="label">Avg Reward</span>
+        <output id="mdp-avg-reward">—</output>
       </div>
     </section>
 
