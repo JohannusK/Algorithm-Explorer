@@ -134,6 +134,18 @@ const sortingAlgorithms = {
       "Hybrid sorting algorithm combining merge sort and insertion sort, optimized for real-world data. Used by Python and Java.",
     run: timSort,
   },
+  comb: {
+    name: "Comb Sort",
+    description:
+      "Improves bubble sort by comparing elements at decreasing gaps, eliminating small values at the end (turtles) more efficiently.",
+    run: combSort,
+  },
+  cocktail: {
+    name: "Cocktail Shaker Sort",
+    description:
+      "Bidirectional bubble sort that alternates between sweeping left-to-right and right-to-left, reducing the turtle problem.",
+    run: cocktailShakerSort,
+  },
 };
 
 const searchingAlgorithms = {
@@ -271,6 +283,26 @@ const complexityCatalog = {
         best: (n) => n,
         average: (n) => 1.3 * nLogN(n),
         worst: (n) => 1.5 * nLogN(n),
+      },
+    },
+    comb: {
+      time: { best: "O(n log n)", average: "O(n²/2^p)", worst: "O(n²)" },
+      space: "O(1)",
+      note: "Typically faster than bubble sort; gap shrinks by factor of 1.3 each pass.",
+      estimate: {
+        best: (n) => 1.1 * nLogN(n),
+        average: (n) => 0.35 * n * (n - 1),
+        worst: (n) => 0.5 * n * (n - 1),
+      },
+    },
+    cocktail: {
+      time: { best: "O(n)", average: "O(n²)", worst: "O(n²)" },
+      space: "O(1)",
+      note: "Bidirectional bubble sort; slightly better than bubble sort on average.",
+      estimate: {
+        best: (n) => Math.max(0, n - 1),
+        average: (n) => 0.4 * n * (n - 1),
+        worst: (n) => 0.5 * n * (n - 1),
       },
     },
   },
@@ -1571,6 +1603,115 @@ async function timSort(ctx) {
     size *= 2;
   }
   ctx.clearActive();
+}
+
+async function combSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  let gap = n;
+  const shrinkFactor = 1.3;
+  let sorted = false;
+  let pass = 0;
+
+  while (!sorted) {
+    pass += 1;
+    ctx.setPass(pass);
+
+    // Update gap
+    gap = Math.floor(gap / shrinkFactor);
+    if (gap <= 1) {
+      gap = 1;
+      sorted = true; // If gap is 1, this is the last pass
+    }
+
+    let swapped = false;
+
+    // Compare elements with current gap
+    for (let i = 0; i + gap < n; i += 1) {
+      ctx.highlight([i, i + gap]);
+      ctx.recordComparison();
+      await ctx.pause();
+
+      if (arr[i] > arr[i + gap]) {
+        await ctx.swap(i, i + gap);
+        swapped = true;
+      }
+    }
+
+    // If no swaps and gap is 1, array is sorted
+    if (gap === 1 && !swapped) {
+      sorted = true;
+    } else if (swapped) {
+      sorted = false;
+    }
+
+    ctx.clearActive();
+  }
+}
+
+async function cocktailShakerSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  let start = 0;
+  let end = n - 1;
+  let swapped = true;
+  let pass = 0;
+
+  while (swapped) {
+    swapped = false;
+    pass += 1;
+    ctx.setPass(pass);
+
+    // Forward pass (left to right)
+    for (let i = start; i < end; i += 1) {
+      ctx.highlight([i, i + 1]);
+      ctx.recordComparison();
+      await ctx.pause();
+
+      if (arr[i] > arr[i + 1]) {
+        await ctx.swap(i, i + 1);
+        swapped = true;
+      }
+    }
+
+    if (!swapped) {
+      break;
+    }
+
+    // Mark the last element as sorted
+    ctx.addSorted(end);
+    end -= 1;
+
+    swapped = false;
+    pass += 1;
+    ctx.setPass(pass);
+
+    // Backward pass (right to left)
+    for (let i = end; i > start; i -= 1) {
+      ctx.highlight([i - 1, i]);
+      ctx.recordComparison();
+      await ctx.pause();
+
+      if (arr[i - 1] > arr[i]) {
+        await ctx.swap(i - 1, i);
+        swapped = true;
+      }
+    }
+
+    // Mark the first element as sorted
+    ctx.addSorted(start);
+    start += 1;
+
+    ctx.clearActive();
+  }
 }
 
 async function linearSearch(ctx, target) {
