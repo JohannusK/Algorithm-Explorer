@@ -289,6 +289,12 @@ const mdpAlgorithms = {
       "Dynamic programming algorithm that iteratively computes optimal state values using the Bellman equation, converging to the optimal policy.",
     run: valueIteration,
   },
+  policyIteration: {
+    name: "Policy Iteration",
+    description:
+      "Alternates between policy evaluation (computing values for current policy) and policy improvement (making policy greedy) until policy stabilizes.",
+    run: policyIteration,
+  },
 };
 
 const complexityCatalog = {
@@ -800,7 +806,11 @@ function updateActionButtonState(running = state.running) {
   } else {
     if (state.mode === "pathfinding") text = "Start Pathfinding";
     else if (state.mode === "searching") text = "Start Searching";
-    else if (state.mode === "mdp") text = "Run Value Iteration";
+    else if (state.mode === "mdp") {
+      const algorithmKey = mdpAlgorithmSelect.value;
+      const algorithm = mdpAlgorithms[algorithmKey];
+      text = algorithm ? `Run ${algorithm.name}` : "Run Algorithm";
+    }
     else text = "Start Sorting";
   }
   actionBtn.textContent = text;
@@ -3031,6 +3041,164 @@ async function valueIteration() {
   renderGrid();
 }
 
+async function policyIteration() {
+  resetMDPStats();
+
+  const size = state.grid.size;
+  const gamma = state.mdp.discount;
+  const theta = state.mdp.threshold;
+  const maxIter = state.mdp.maxIterations;
+
+  // Initialize random policy and values
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const cell = state.grid.cells[row][col];
+      cell.value = 0;
+
+      // Initialize with random policy for non-terminal, non-wall cells
+      if (!cell.isWall && !cell.isTerminal) {
+        const actions = ["up", "down", "left", "right"];
+        cell.policy = actions[Math.floor(Math.random() * actions.length)];
+      } else {
+        cell.policy = null;
+      }
+    }
+  }
+
+  let policyStable = false;
+  let iterations = 0;
+
+  // Policy Iteration loop
+  while (!policyStable && iterations < maxIter) {
+    iterations++;
+
+    // === Policy Evaluation ===
+    // Evaluate current policy until values converge
+    let evalIterations = 0;
+    const maxEvalIter = 100;
+
+    while (evalIterations < maxEvalIter) {
+      let evalDelta = 0;
+      evalIterations++;
+
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const cell = state.grid.cells[row][col];
+
+          // Skip walls and terminal states
+          if (cell.isWall || cell.isTerminal) continue;
+
+          const oldValue = cell.value;
+          const policy = cell.policy;
+
+          // Compute value following current policy
+          let nextRow = row;
+          let nextCol = col;
+
+          if (policy === "up") nextRow = row - 1;
+          else if (policy === "down") nextRow = row + 1;
+          else if (policy === "left") nextCol = col - 1;
+          else if (policy === "right") nextCol = col + 1;
+
+          // Check bounds and walls
+          if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) {
+            // Out of bounds - stay in place
+            cell.value = cell.reward + gamma * oldValue;
+          } else {
+            const nextCell = state.grid.cells[nextRow][nextCol];
+            if (nextCell.isWall) {
+              // Hit wall - stay in place
+              cell.value = cell.reward + gamma * oldValue;
+            } else {
+              // Valid move
+              cell.value = cell.reward + gamma * nextCell.value;
+            }
+          }
+
+          evalDelta = Math.max(evalDelta, Math.abs(oldValue - cell.value));
+        }
+      }
+
+      // Check if policy evaluation converged
+      if (evalDelta < theta) break;
+    }
+
+    // Update stats
+    state.mdp.result.iterations = iterations;
+    state.mdp.result.maxDelta = evalIterations;
+    mdpIterationsOutput.textContent = iterations;
+    mdpMaxDeltaOutput.textContent = `${evalIterations} eval`;
+
+    renderGrid();
+    await pause();
+
+    // === Policy Improvement ===
+    policyStable = true;
+
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        const cell = state.grid.cells[row][col];
+
+        // Skip walls and terminal states
+        if (cell.isWall || cell.isTerminal) continue;
+
+        const oldPolicy = cell.policy;
+
+        const actions = [
+          { dir: "up", row: row - 1, col: col },
+          { dir: "down", row: row + 1, col: col },
+          { dir: "left", row: row, col: col - 1 },
+          { dir: "right", row: row, col: col + 1 },
+        ];
+
+        let bestAction = null;
+        let bestValue = -Infinity;
+
+        // Find best action
+        for (const action of actions) {
+          const nextRow = action.row;
+          const nextCol = action.col;
+
+          let actionValue;
+
+          // Check bounds
+          if (nextRow < 0 || nextRow >= size || nextCol < 0 || nextCol >= size) {
+            actionValue = cell.reward + gamma * cell.value;
+          } else {
+            const nextCell = state.grid.cells[nextRow][nextCol];
+            if (nextCell.isWall) {
+              actionValue = cell.reward + gamma * cell.value;
+            } else {
+              actionValue = cell.reward + gamma * nextCell.value;
+            }
+          }
+
+          if (actionValue > bestValue) {
+            bestValue = actionValue;
+            bestAction = action.dir;
+          }
+        }
+
+        cell.policy = bestAction;
+
+        // Check if policy changed
+        if (oldPolicy !== bestAction) {
+          policyStable = false;
+        }
+      }
+    }
+
+    renderGrid();
+    await pause();
+  }
+
+  // Mark as converged
+  state.mdp.result.converged = policyStable;
+  mdpConvergedOutput.textContent = policyStable ? "Yes" : "No";
+
+  renderGrid();
+}
+
 async function runPathfinding() {
   if (state.running) return;
 
@@ -3543,6 +3711,7 @@ if (mdpAlgorithmSelect) {
     if (state.running) return;
     invalidateLastRun();
     updateAlgorithmDetails(mdpAlgorithmSelect.value, "mdp");
+    updateActionButtonState();
   });
 }
 
