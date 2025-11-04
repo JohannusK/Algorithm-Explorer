@@ -2,6 +2,7 @@ const appElement = document.querySelector(".app");
 const arrayContainer = document.getElementById("array-container");
 const gridContainer = document.getElementById("grid-container");
 const sizeInput = document.getElementById("size-input");
+const sizeLabel = document.getElementById("size-label");
 const speedInput = document.getElementById("speed-input");
 const sortingAlgorithmSelect = document.getElementById("sorting-algorithm-select");
 const sortingScenarioSelect = document.getElementById("sorting-scenario-select");
@@ -79,6 +80,7 @@ const state = {
     cells: [],
     start: null,
     end: null,
+    minDistance: 15,
     pathResult: {
       found: false,
       path: [],
@@ -726,7 +728,13 @@ function updateSearchOutputs() {
 }
 
 function updateLabels() {
-  sizeValue.textContent = sizeInput.value;
+  if (state.mode === "pathfinding") {
+    sizeLabel.textContent = "Min Distance";
+    sizeValue.textContent = sizeInput.value;
+  } else {
+    sizeLabel.textContent = "Items";
+    sizeValue.textContent = sizeInput.value;
+  }
   speedValue.textContent = `${speedInput.value}ms`;
 }
 
@@ -2251,12 +2259,50 @@ function generateGrid(size = state.grid.size) {
     }
   }
 
-  // Set default start and end positions
-  state.grid.start = { row: Math.floor(size * 0.2), col: Math.floor(size * 0.2) };
-  state.grid.end = { row: Math.floor(size * 0.8), col: Math.floor(size * 0.8) };
+  // Set default start and end positions with minimum distance
+  generateStartEndPositions(size, state.grid.minDistance);
 
   resetPathResult();
   renderGrid();
+}
+
+function generateStartEndPositions(size = state.grid.size, minDistance = state.grid.minDistance) {
+  // Try to place start and end with at least minDistance apart
+  let attempts = 0;
+  let maxAttempts = 100;
+
+  do {
+    const startRow = randomInt(0, size - 1);
+    const startCol = randomInt(0, size - 1);
+    const endRow = randomInt(0, size - 1);
+    const endCol = randomInt(0, size - 1);
+
+    const distance = manhattanDistance(startRow, startCol, endRow, endCol);
+
+    if (distance >= minDistance) {
+      state.grid.start = { row: startRow, col: startCol };
+      state.grid.end = { row: endRow, col: endCol };
+
+      // Clear walls at start and end positions if they exist
+      if (state.grid.cells.length > 0) {
+        state.grid.cells[startRow][startCol].isWall = false;
+        state.grid.cells[endRow][endCol].isWall = false;
+      }
+
+      return;
+    }
+
+    attempts += 1;
+  } while (attempts < maxAttempts);
+
+  // Fallback: place at opposite corners
+  state.grid.start = { row: 0, col: 0 };
+  state.grid.end = { row: size - 1, col: size - 1 };
+
+  if (state.grid.cells.length > 0) {
+    state.grid.cells[0][0].isWall = false;
+    state.grid.cells[size - 1][size - 1].isWall = false;
+  }
 }
 
 function renderGrid() {
@@ -2760,6 +2806,18 @@ function setMode(mode, { force = false } = {}) {
   updateActionButtonState();
   updateRandomizeButtonState();
 
+  // Update size slider for pathfinding mode
+  if (mode === "pathfinding") {
+    sizeInput.min = "5";
+    sizeInput.max = "38";  // Max possible distance in a 20x20 grid is ~38
+    sizeInput.value = state.grid.minDistance;
+  } else {
+    sizeInput.min = "5";
+    sizeInput.max = "40";
+    sizeInput.value = state.dataset.length || 15;
+  }
+  updateLabels();
+
   clearActive();
   clearSorted();
   resetStats();
@@ -2806,7 +2864,14 @@ function setMode(mode, { force = false } = {}) {
 
 sizeInput.addEventListener("input", updateLabels);
 sizeInput.addEventListener("change", () => {
-  generateArray(Number(sizeInput.value));
+  if (state.mode === "pathfinding") {
+    state.grid.minDistance = Number(sizeInput.value);
+    generateStartEndPositions(state.grid.size, state.grid.minDistance);
+    renderGrid();
+    resetPathResult();
+  } else {
+    generateArray(Number(sizeInput.value));
+  }
 });
 
 speedInput.addEventListener("input", updateLabels);
