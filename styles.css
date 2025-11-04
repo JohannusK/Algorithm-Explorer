@@ -173,6 +173,20 @@ body {
   display: none !important;
 }
 
+.app[data-mode="pathfinding"] [data-mode="sorting"],
+.app[data-mode="pathfinding"] [data-mode="sorting"][hidden],
+.app[data-mode="pathfinding"] [data-mode="searching"],
+.app[data-mode="pathfinding"] [data-mode="searching"][hidden] {
+  display: none !important;
+}
+
+.app[data-mode="sorting"] [data-mode="pathfinding"],
+.app[data-mode="sorting"] [data-mode="pathfinding"][hidden],
+.app[data-mode="searching"] [data-mode="pathfinding"],
+.app[data-mode="searching"] [data-mode="pathfinding"][hidden] {
+  display: none !important;
+}
+
 .button-group {
   display: flex;
   gap: 0.8rem;
@@ -409,6 +423,92 @@ button:hover:not(:disabled) {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-main);
+}
+
+/* Grid visualization for pathfinding */
+.grid {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  gap: 1px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  padding: 1px;
+}
+
+.grid-cell {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 2px;
+  transition: background 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.grid-cell:hover:not(.wall):not(.start):not(.end) {
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.grid-cell.wall {
+  background: rgba(71, 85, 105, 0.95);
+  cursor: not-allowed;
+}
+
+.grid-cell.start {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.9));
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+.grid-cell.end {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.9));
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.grid-cell.visiting {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.8), rgba(245, 158, 11, 0.75));
+  animation: pulse 0.3s ease;
+}
+
+.grid-cell.visited {
+  background: rgba(96, 165, 250, 0.4);
+}
+
+.grid-cell.path {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(147, 51, 234, 0.85));
+  animation: pathReveal 0.3s ease;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes pathReveal {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.app[data-mode="pathfinding"] .array {
+  display: none;
+}
+
+.app[data-mode="sorting"] .grid,
+.app[data-mode="searching"] .grid {
+  display: none;
+}
+
+.app[data-mode="pathfinding"] .grid {
+  display: grid !important;
 }
 
 @media (max-width: 640px) {

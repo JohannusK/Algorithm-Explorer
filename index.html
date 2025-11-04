@@ -14,6 +14,7 @@
       <nav class="tabs" role="tablist" aria-label="Algorithm categories">
         <button type="button" class="tab active" data-tab="sorting" role="tab" aria-selected="true">Sorting</button>
         <button type="button" class="tab" data-tab="searching" role="tab" aria-selected="false">Searching</button>
+        <button type="button" class="tab" data-tab="pathfinding" role="tab" aria-selected="false">Pathfinding</button>
       </nav>
     </header>
 
@@ -83,9 +84,33 @@
           <button id="target-randomize-btn" type="button">Random</button>
         </div>
       </div>
+      <div class="control" data-mode="pathfinding">
+        <label for="pathfinding-algorithm-select">Algorithm</label>
+        <select id="pathfinding-algorithm-select">
+          <option value="bfs">Breadth-First Search (BFS)</option>
+          <option value="dfs">Depth-First Search (DFS)</option>
+          <option value="dijkstra">Dijkstra's Algorithm</option>
+          <option value="astar">A* (A-Star)</option>
+          <option value="greedy">Greedy Best-First Search</option>
+        </select>
+      </div>
+      <div class="control" data-mode="pathfinding">
+        <label for="grid-size-input">Grid Size</label>
+        <input id="grid-size-input" type="range" min="10" max="30" value="20">
+        <span id="grid-size-value" aria-live="polite">20</span>
+      </div>
+      <div class="control" data-mode="pathfinding">
+        <label for="wall-density-input">Wall Density</label>
+        <input id="wall-density-input" type="range" min="0" max="40" value="20">
+        <span id="wall-density-value" aria-live="polite">20%</span>
+      </div>
       <div class="button-group">
         <button id="randomize-btn" type="button">Shuffle</button>
         <button id="action-btn" type="button">Start Sorting</button>
+      </div>
+      <div class="button-group" data-mode="pathfinding">
+        <button id="clear-walls-btn" type="button">Clear Walls</button>
+        <button id="generate-maze-btn" type="button">Generate Maze</button>
       </div>
     </section>
 
@@ -127,8 +152,28 @@
       </div>
     </section>
 
+    <section class="stats" aria-label="Pathfinding statistics" data-mode="pathfinding" hidden>
+      <div class="stat">
+        <span class="label">Nodes Visited</span>
+        <output id="path-nodes-visited">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Path Length</span>
+        <output id="path-length">—</output>
+      </div>
+      <div class="stat">
+        <span class="label">Path Found</span>
+        <output id="path-found-status">No</output>
+      </div>
+      <div class="stat">
+        <span class="label">Steps</span>
+        <output id="path-step-count">0</output>
+      </div>
+    </section>
+
     <section class="visualization" aria-live="polite" aria-label="Data visualization">
       <div id="array-container" class="array"></div>
+      <div id="grid-container" class="grid" hidden></div>
     </section>
 
     <section class="details" aria-live="polite">
