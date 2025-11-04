@@ -753,6 +753,14 @@ function updateActionButtonState(running = state.running) {
   actionBtn.textContent = text;
 }
 
+function updateRandomizeButtonState() {
+  if (state.mode === "pathfinding") {
+    randomizeBtn.textContent = "Regenerate Maze";
+  } else {
+    randomizeBtn.textContent = "Shuffle";
+  }
+}
+
 function toggleControls(disabled) {
   sizeInput.disabled = disabled;
   randomizeBtn.disabled = disabled;
@@ -2750,6 +2758,7 @@ function setMode(mode, { force = false } = {}) {
   searchingStatsSection.hidden = mode !== "searching";
   pathfindingStatsSection.hidden = mode !== "pathfinding";
   updateActionButtonState();
+  updateRandomizeButtonState();
 
   clearActive();
   clearSorted();
@@ -2839,7 +2848,12 @@ searchScenarioSelect.addEventListener("change", () => {
 });
 
 randomizeBtn.addEventListener("click", () => {
-  generateArray(Number(sizeInput.value));
+  if (state.mode === "pathfinding") {
+    const density = Number(wallDensityInput.value);
+    generateRandomWalls(density);
+  } else {
+    generateArray(Number(sizeInput.value));
+  }
 });
 
 actionBtn.addEventListener("click", () => {
