@@ -122,6 +122,18 @@ const sortingAlgorithms = {
       "Sorts integers digit by digit, from least significant to most significant, using a stable counting sort for each digit position.",
     run: radixSort,
   },
+  bucket: {
+    name: "Bucket Sort",
+    description:
+      "Distributes elements into buckets based on their value range, sorts each bucket individually, then concatenates them.",
+    run: bucketSort,
+  },
+  tim: {
+    name: "Tim Sort",
+    description:
+      "Hybrid sorting algorithm combining merge sort and insertion sort, optimized for real-world data. Used by Python and Java.",
+    run: timSort,
+  },
 };
 
 const searchingAlgorithms = {
@@ -239,6 +251,26 @@ const complexityCatalog = {
         best: (n) => 3 * n,
         average: (n) => 3 * n,
         worst: (n) => 3 * n,
+      },
+    },
+    bucket: {
+      time: { best: "O(n+k)", average: "O(n+k)", worst: "O(n²)" },
+      space: "O(n+k)",
+      note: "Efficient for uniformly distributed data; worst case when all elements land in one bucket.",
+      estimate: {
+        best: (n) => n + 10,
+        average: (n) => 2 * n,
+        worst: (n) => 0.5 * n * (n - 1),
+      },
+    },
+    tim: {
+      time: { best: "O(n)", average: "O(n log n)", worst: "O(n log n)" },
+      space: "O(n)",
+      note: "Adapts to patterns in data; excels with partially sorted inputs.",
+      estimate: {
+        best: (n) => n,
+        average: (n) => 1.3 * nLogN(n),
+        worst: (n) => 1.5 * nLogN(n),
       },
     },
   },
@@ -1362,6 +1394,181 @@ async function countingSortByDigit(ctx, exp) {
   for (let i = 0; i < n; i += 1) {
     ctx.highlight([i]);
     await ctx.overwrite(i, output[i]);
+  }
+  ctx.clearActive();
+}
+
+async function bucketSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  // Find min and max for normalization
+  let min = arr[0];
+  let max = arr[0];
+  for (let i = 1; i < n; i += 1) {
+    ctx.highlight([i]);
+    ctx.recordComparison(2);
+    await ctx.pause();
+    if (arr[i] < min) min = arr[i];
+    if (arr[i] > max) max = arr[i];
+  }
+  ctx.clearActive();
+
+  const bucketCount = Math.max(5, Math.floor(Math.sqrt(n)));
+  const buckets = Array.from({ length: bucketCount }, () => []);
+  const range = max - min + 1;
+
+  // Distribute elements into buckets
+  ctx.setPass(1);
+  for (let i = 0; i < n; i += 1) {
+    ctx.highlight([i]);
+    await ctx.pause();
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.floor(((arr[i] - min) / range) * bucketCount)
+    );
+    buckets[bucketIndex].push(arr[i]);
+    ctx.recordWrite();
+  }
+  ctx.clearActive();
+
+  // Sort individual buckets using insertion sort
+  ctx.setPass(2);
+  for (let i = 0; i < bucketCount; i += 1) {
+    const bucket = buckets[i];
+    // Simple insertion sort for each bucket
+    for (let j = 1; j < bucket.length; j += 1) {
+      const key = bucket[j];
+      let k = j - 1;
+      ctx.recordComparison();
+      while (k >= 0 && bucket[k] > key) {
+        bucket[k + 1] = bucket[k];
+        k -= 1;
+        ctx.recordComparison();
+        ctx.recordWrite();
+      }
+      bucket[k + 1] = key;
+    }
+  }
+
+  // Concatenate buckets back into array
+  ctx.setPass(3);
+  let index = 0;
+  for (let i = 0; i < bucketCount; i += 1) {
+    for (let j = 0; j < buckets[i].length; j += 1) {
+      ctx.highlight([index]);
+      await ctx.overwrite(index, buckets[i][j]);
+      index += 1;
+    }
+  }
+  ctx.clearActive();
+}
+
+async function timSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  const MIN_MERGE = 32;
+
+  // Insertion sort for small runs
+  async function insertionSortRange(left, right) {
+    for (let i = left + 1; i <= right; i += 1) {
+      const key = arr[i];
+      let j = i - 1;
+      ctx.highlight([i]);
+      await ctx.pause();
+
+      while (j >= left) {
+        ctx.highlight([j, j + 1]);
+        ctx.recordComparison();
+        await ctx.pause();
+        if (arr[j] > key) {
+          await ctx.overwrite(j + 1, arr[j]);
+          j -= 1;
+        } else {
+          break;
+        }
+      }
+
+      if (j + 1 !== i) {
+        await ctx.overwrite(j + 1, key);
+      }
+      ctx.clearActive();
+    }
+  }
+
+  // Merge function for TimSort
+  async function merge(left, mid, right) {
+    const leftArr = arr.slice(left, mid + 1);
+    const rightArr = arr.slice(mid + 1, right + 1);
+    let i = 0;
+    let j = 0;
+    let k = left;
+
+    while (i < leftArr.length && j < rightArr.length) {
+      ctx.highlight([left + i, mid + 1 + j, k]);
+      ctx.recordComparison();
+      await ctx.pause();
+
+      if (leftArr[i] <= rightArr[j]) {
+        await ctx.overwrite(k, leftArr[i]);
+        i += 1;
+      } else {
+        await ctx.overwrite(k, rightArr[j]);
+        j += 1;
+      }
+      k += 1;
+    }
+
+    while (i < leftArr.length) {
+      ctx.highlight([k]);
+      await ctx.pause();
+      await ctx.overwrite(k, leftArr[i]);
+      i += 1;
+      k += 1;
+    }
+
+    while (j < rightArr.length) {
+      ctx.highlight([k]);
+      await ctx.pause();
+      await ctx.overwrite(k, rightArr[j]);
+      j += 1;
+      k += 1;
+    }
+
+    ctx.clearActive();
+  }
+
+  // Sort individual runs of size MIN_MERGE
+  ctx.setPass(1);
+  for (let start = 0; start < n; start += MIN_MERGE) {
+    const end = Math.min(start + MIN_MERGE - 1, n - 1);
+    await insertionSortRange(start, end);
+  }
+
+  // Merge runs
+  let size = MIN_MERGE;
+  let pass = 2;
+  while (size < n) {
+    ctx.setPass(pass);
+    pass += 1;
+
+    for (let start = 0; start < n; start += 2 * size) {
+      const mid = start + size - 1;
+      const end = Math.min(start + 2 * size - 1, n - 1);
+
+      if (mid < end) {
+        await merge(start, mid, end);
+      }
+    }
+
+    size *= 2;
   }
   ctx.clearActive();
 }
