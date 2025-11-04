@@ -98,6 +98,30 @@ const sortingAlgorithms = {
       "Randomly shuffles the array until it happens to be sorted. Entertaining, but wildly inefficient—only use with tiny arrays.",
     run: bogoSort,
   },
+  heap: {
+    name: "Heap Sort",
+    description:
+      "Builds a max heap from the array, then repeatedly extracts the maximum element to build the sorted portion from the end.",
+    run: heapSort,
+  },
+  shell: {
+    name: "Shell Sort",
+    description:
+      "Improves insertion sort by comparing elements at larger gaps, gradually reducing the gap until the array is sorted.",
+    run: shellSort,
+  },
+  counting: {
+    name: "Counting Sort",
+    description:
+      "Counts occurrences of each value and uses that count to place elements in sorted order. Works best for integers with limited range.",
+    run: countingSort,
+  },
+  radix: {
+    name: "Radix Sort",
+    description:
+      "Sorts integers digit by digit, from least significant to most significant, using a stable counting sort for each digit position.",
+    run: radixSort,
+  },
 };
 
 const searchingAlgorithms = {
@@ -175,6 +199,46 @@ const complexityCatalog = {
         best: (n) => Math.max(0, n - 1),
         average: (n) => factorialApprox(n) * n,
         worst: () => Number.POSITIVE_INFINITY,
+      },
+    },
+    heap: {
+      time: { best: "O(n log n)", average: "O(n log n)", worst: "O(n log n)" },
+      space: "O(1)",
+      note: "In-place sort with consistent performance; builds a heap structure.",
+      estimate: {
+        best: (n) => 1.5 * nLogN(n),
+        average: (n) => 2 * nLogN(n),
+        worst: (n) => 2 * nLogN(n),
+      },
+    },
+    shell: {
+      time: { best: "O(n log n)", average: "O(n^1.3)", worst: "O(n²)" },
+      space: "O(1)",
+      note: "Gap sequence determines performance; typically faster than O(n²) sorts.",
+      estimate: {
+        best: (n) => 1.2 * nLogN(n),
+        average: (n) => Math.pow(n, 1.3),
+        worst: (n) => 0.5 * n * (n - 1),
+      },
+    },
+    counting: {
+      time: { best: "O(n+k)", average: "O(n+k)", worst: "O(n+k)" },
+      space: "O(k)",
+      note: "Linear time for integers; k is the range of values (0-100 here).",
+      estimate: {
+        best: (n) => n + 100,
+        average: (n) => n + 100,
+        worst: (n) => n + 100,
+      },
+    },
+    radix: {
+      time: { best: "O(d·n)", average: "O(d·n)", worst: "O(d·n)" },
+      space: "O(n+k)",
+      note: "Linear time for integers; d is number of digits (max 3 for values 4-100).",
+      estimate: {
+        best: (n) => 3 * n,
+        average: (n) => 3 * n,
+        worst: (n) => 3 * n,
       },
     },
   },
@@ -1077,6 +1141,229 @@ async function bogoSort(ctx) {
   }
 
   console.warn("Bogosort hit attempt limit without finishing. Try a smaller array.");
+}
+
+async function heapSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  async function heapify(heapSize, rootIndex) {
+    let largest = rootIndex;
+    const left = 2 * rootIndex + 1;
+    const right = 2 * rootIndex + 2;
+
+    if (left < heapSize) {
+      ctx.highlight([largest, left]);
+      ctx.recordComparison();
+      await ctx.pause();
+      if (arr[left] > arr[largest]) {
+        largest = left;
+      }
+    }
+
+    if (right < heapSize) {
+      ctx.highlight([largest, right]);
+      ctx.recordComparison();
+      await ctx.pause();
+      if (arr[right] > arr[largest]) {
+        largest = right;
+      }
+    }
+
+    if (largest !== rootIndex) {
+      await ctx.swap(rootIndex, largest);
+      await heapify(heapSize, largest);
+    }
+  }
+
+  // Build max heap
+  ctx.setPass(1);
+  for (let i = Math.floor(n / 2) - 1; i >= 0; i -= 1) {
+    await heapify(n, i);
+  }
+
+  // Extract elements from heap one by one
+  for (let i = n - 1; i > 0; i -= 1) {
+    ctx.setPass(n - i + 1);
+    await ctx.swap(0, i);
+    ctx.addSorted(i);
+    await heapify(i, 0);
+  }
+  ctx.clearActive();
+}
+
+async function shellSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  // Generate gap sequence (Knuth's sequence: h = 3*h + 1)
+  let gap = 1;
+  while (gap < Math.floor(n / 3)) {
+    gap = 3 * gap + 1;
+  }
+
+  let pass = 0;
+  while (gap >= 1) {
+    pass += 1;
+    ctx.setPass(pass);
+
+    for (let i = gap; i < n; i += 1) {
+      const temp = arr[i];
+      let j = i;
+
+      while (j >= gap) {
+        ctx.highlight([j, j - gap]);
+        ctx.recordComparison();
+        await ctx.pause();
+
+        if (arr[j - gap] > temp) {
+          await ctx.overwrite(j, arr[j - gap]);
+          j -= gap;
+        } else {
+          break;
+        }
+      }
+
+      if (j !== i) {
+        await ctx.overwrite(j, temp);
+      }
+      ctx.clearActive();
+    }
+
+    gap = Math.floor(gap / 3);
+  }
+}
+
+async function countingSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  // Find min and max values
+  let min = arr[0];
+  let max = arr[0];
+  for (let i = 1; i < n; i += 1) {
+    ctx.highlight([i]);
+    ctx.recordComparison(2);
+    await ctx.pause();
+    if (arr[i] < min) min = arr[i];
+    if (arr[i] > max) max = arr[i];
+  }
+  ctx.clearActive();
+
+  const range = max - min + 1;
+  const count = new Array(range).fill(0);
+  const output = new Array(n);
+
+  // Count occurrences
+  ctx.setPass(1);
+  for (let i = 0; i < n; i += 1) {
+    ctx.highlight([i]);
+    await ctx.pause();
+    count[arr[i] - min] += 1;
+    ctx.recordWrite();
+  }
+  ctx.clearActive();
+
+  // Accumulate counts
+  ctx.setPass(2);
+  for (let i = 1; i < range; i += 1) {
+    count[i] += count[i - 1];
+  }
+
+  // Build output array
+  ctx.setPass(3);
+  for (let i = n - 1; i >= 0; i -= 1) {
+    ctx.highlight([i]);
+    await ctx.pause();
+    const value = arr[i];
+    const position = count[value - min] - 1;
+    output[position] = value;
+    count[value - min] -= 1;
+  }
+  ctx.clearActive();
+
+  // Copy back to original array
+  ctx.setPass(4);
+  for (let i = 0; i < n; i += 1) {
+    ctx.highlight([i]);
+    await ctx.overwrite(i, output[i]);
+  }
+  ctx.clearActive();
+}
+
+async function radixSort(ctx) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n <= 1) {
+    return;
+  }
+
+  // Find maximum value to determine number of digits
+  let max = arr[0];
+  for (let i = 1; i < n; i += 1) {
+    ctx.highlight([i]);
+    ctx.recordComparison();
+    await ctx.pause();
+    if (arr[i] > max) max = arr[i];
+  }
+  ctx.clearActive();
+
+  let pass = 0;
+  // Process each digit position
+  for (let exp = 1; Math.floor(max / exp) > 0; exp *= 10) {
+    pass += 1;
+    ctx.setPass(pass);
+    await countingSortByDigit(ctx, exp);
+  }
+}
+
+async function countingSortByDigit(ctx, exp) {
+  const arr = ctx.data();
+  const n = arr.length;
+  const output = new Array(n);
+  const count = new Array(10).fill(0);
+
+  // Count occurrences of digits
+  for (let i = 0; i < n; i += 1) {
+    ctx.highlight([i]);
+    await ctx.pause();
+    const digit = Math.floor(arr[i] / exp) % 10;
+    count[digit] += 1;
+    ctx.recordWrite();
+  }
+  ctx.clearActive();
+
+  // Accumulate counts
+  for (let i = 1; i < 10; i += 1) {
+    count[i] += count[i - 1];
+  }
+
+  // Build output array (process from end to maintain stability)
+  for (let i = n - 1; i >= 0; i -= 1) {
+    ctx.highlight([i]);
+    await ctx.pause();
+    const digit = Math.floor(arr[i] / exp) % 10;
+    const position = count[digit] - 1;
+    output[position] = arr[i];
+    count[digit] -= 1;
+  }
+  ctx.clearActive();
+
+  // Copy back to original array
+  for (let i = 0; i < n; i += 1) {
+    ctx.highlight([i]);
+    await ctx.overwrite(i, output[i]);
+  }
+  ctx.clearActive();
 }
 
 async function linearSearch(ctx, target) {
