@@ -3134,19 +3134,22 @@ function loadMDPScenario(scenarioKey) {
       cell.isTerminal = true;
     }
   } else if (scenarioKey === "fourrooms") {
-    // Create four rooms with walls and a goal
+    // Create four rooms with walls and doorways
     const mid = Math.floor(size / 2);
+    const doorOffset = Math.floor(size / 4); // Position doorways at quarter points
 
-    // Vertical wall
+    // Vertical wall with two doorways (top and bottom halves)
     for (let row = 0; row < size; row++) {
-      if (row !== mid) {
+      // Skip doorways at quarter and three-quarter points
+      if (row !== doorOffset && row !== mid + doorOffset) {
         state.grid.cells[row][mid].isWall = true;
       }
     }
 
-    // Horizontal wall
+    // Horizontal wall with two doorways (left and right halves)
     for (let col = 0; col < size; col++) {
-      if (col !== mid) {
+      // Skip doorways at quarter and three-quarter points
+      if (col !== doorOffset && col !== mid + doorOffset) {
         state.grid.cells[mid][col].isWall = true;
       }
     }
