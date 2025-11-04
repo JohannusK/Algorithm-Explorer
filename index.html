@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm Explorer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app" aria-label="Algorithm explorer" data-mode="sorting">
+    <header class="header">
+      <h1>Algorithm Explorer</h1>
+      <p>Switch between sorting and searching tabs to watch each algorithm work step by step.</p>
+      <nav class="tabs" role="tablist" aria-label="Algorithm categories">
+        <button type="button" class="tab active" data-tab="sorting" role="tab" aria-selected="true">Sorting</button>
+        <button type="button" class="tab" data-tab="searching" role="tab" aria-selected="false">Searching</button>
+      </nav>
+    </header>
+
+    <section class="controls" aria-label="Configuration controls">
+      <div class="control" data-mode="sorting">
+        <label for="sorting-algorithm-select">Algorithm</label>
+        <select id="sorting-algorithm-select">
+          <option value="bubble">Bubble Sort</option>
+          <option value="insertion">Insertion Sort</option>
+          <option value="selection">Selection Sort</option>
+          <option value="quick">Quick Sort</option>
+          <option value="merge">Merge Sort</option>
+          <option value="bogo">Bogosort</option>
+        </select>
+      </div>
+      <div class="control" data-mode="sorting">
+        <label for="sorting-scenario-select">Scenario</label>
+        <select id="sorting-scenario-select">
+          <option value="random">Random Order</option>
+          <option value="sorted">Already Sorted</option>
+          <option value="reversed">Reversed Order</option>
+        </select>
+      </div>
+      <div class="control" data-mode="searching">
+        <label for="search-algorithm-select">Algorithm</label>
+        <select id="search-algorithm-select">
+          <option value="linear">Linear Search</option>
+          <option value="binary">Binary Search</option>
+        </select>
+      </div>
+      <div class="control" data-mode="searching">
+        <label for="search-scenario-select">Scenario</label>
+        <select id="search-scenario-select">
+          <option value="random-present">Target Present (Random)</option>
+          <option value="first">Target at Start</option>
+          <option value="middle">Target in Middle</option>
+          <option value="last">Target at End</option>
+          <option value="absent">Target Absent</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="size-input">Items</label>
+        <input id="size-input" type="range" min="5" max="40" value="15">
+        <span id="size-value" aria-live="polite">15</span>
+      </div>
+      <div class="control">
+        <label for="speed-input">Speed</label>
+        <input id="speed-input" type="range" min="10" max="400" value="120">
+        <span id="speed-value" aria-live="polite">120ms</span>
+      </div>
+      <div class="control" data-mode="searching">
+        <label for="target-input">Target</label>
+        <div class="target-field">
+          <input id="target-input" type="number" min="0" max="100" value="50">
+          <button id="target-randomize-btn" type="button">Random</button>
+        </div>
+      </div>
+      <div class="button-group">
+        <button id="randomize-btn" type="button">Shuffle</button>
+        <button id="action-btn" type="button">Start Sorting</button>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Sort statistics" data-mode="sorting">
+      <div class="stat">
+        <span class="label">Comparisons</span>
+        <output id="comparison-count">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Writes</span>
+        <output id="write-count">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Total Operations</span>
+        <output id="operation-count">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Passes</span>
+        <output id="pass-count">0</output>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Search statistics" data-mode="searching" hidden>
+      <div class="stat">
+        <span class="label">Comparisons</span>
+        <output id="search-comparison-count">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Steps</span>
+        <output id="search-step-count">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Result Index</span>
+        <output id="search-result-index">—</output>
+      </div>
+      <div class="stat">
+        <span class="label">Found</span>
+        <output id="search-found-status">No</output>
+      </div>
+    </section>
+
+    <section class="visualization" aria-live="polite" aria-label="Data visualization">
+      <div id="array-container" class="array"></div>
+    </section>
+
+    <section class="details" aria-live="polite">
+      <div class="algorithm-summary">
+        <h2 id="algorithm-name">Bubble Sort</h2>
+        <p id="algorithm-description">
+          Repeatedly steps through the list, swapping adjacent elements when they are out of order. Largest values bubble to the end each pass.
+        </p>
+      </div>
+      <div class="complexity" aria-label="Algorithm complexity overview">
+        <h3>Complexity &amp; Growth</h3>
+        <dl class="complexity-grid">
+          <div>
+            <dt>Time (Best)</dt>
+            <dd id="complexity-time-best">O(n)</dd>
+          </div>
+          <div>
+            <dt>Time (Average)</dt>
+            <dd id="complexity-time-average">O(n²)</dd>
+          </div>
+          <div>
+            <dt>Time (Worst)</dt>
+            <dd id="complexity-time-worst">O(n²)</dd>
+          </div>
+          <div>
+            <dt>Space</dt>
+            <dd id="complexity-space">O(1)</dd>
+          </div>
+        </dl>
+        <p id="complexity-note" class="complexity-note">Stable; great for nearly sorted data.</p>
+        <div class="growth" aria-label="Order-of-growth snapshot">
+          <div class="growth-header">
+            <h4>Order-of-Growth Snapshot</h4>
+            <span class="growth-n">n=<span id="growth-n">15</span></span>
+          </div>
+          <div class="growth-bars">
+            <div class="growth-bar" id="growth-bar-best">
+              <span class="label">Best</span>
+              <strong class="value">—</strong>
+            </div>
+            <div class="growth-bar" id="growth-bar-average">
+              <span class="label">Average</span>
+              <strong class="value">—</strong>
+            </div>
+            <div class="growth-bar" id="growth-bar-worst">
+              <span class="label">Worst</span>
+              <strong class="value">—</strong>
+            </div>
+            <div class="growth-bar actual" id="growth-bar-actual">
+              <span class="label">Actual</span>
+              <strong class="value">Run to see</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
