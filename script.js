@@ -80,7 +80,7 @@ const state = {
     cells: [],
     start: null,
     end: null,
-    minDistance: 15,
+    minDistance: 20, // Will be adjusted based on grid size
     pathResult: {
       found: false,
       path: [],
@@ -2808,8 +2808,11 @@ function setMode(mode, { force = false } = {}) {
 
   // Update size slider for pathfinding mode
   if (mode === "pathfinding") {
+    const maxDistance = (state.grid.size - 1) * 2; // Max Manhattan distance in NxN grid
     sizeInput.min = "5";
-    sizeInput.max = "38";  // Max possible distance in a 20x20 grid is ~38
+    sizeInput.max = String(maxDistance);
+    // Clamp minDistance to valid range
+    state.grid.minDistance = Math.min(state.grid.minDistance, maxDistance);
     sizeInput.value = state.grid.minDistance;
   } else {
     sizeInput.min = "5";
@@ -2990,7 +2993,17 @@ if (gridSizeInput) {
 
   gridSizeInput.addEventListener("change", () => {
     if (state.running) return;
-    generateGrid(Number(gridSizeInput.value));
+    const newSize = Number(gridSizeInput.value);
+    generateGrid(newSize);
+
+    // Update min distance slider max based on new grid size
+    const maxDistance = (newSize - 1) * 2;
+    sizeInput.max = String(maxDistance);
+
+    // Clamp current minDistance to new valid range
+    state.grid.minDistance = Math.min(state.grid.minDistance, maxDistance);
+    sizeInput.value = state.grid.minDistance;
+    updateLabels();
   });
 }
 
