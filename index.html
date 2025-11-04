@@ -68,15 +68,25 @@
           <option value="absent">Target Absent</option>
         </select>
       </div>
-      <div class="control">
+      <div class="control" id="size-control">
         <label id="size-label" for="size-input">Items</label>
         <input id="size-input" type="range" min="5" max="40" value="15">
         <span id="size-value" aria-live="polite">15</span>
+      </div>
+      <div class="control" id="grid-size-control">
+        <label for="grid-size-input">Grid Size</label>
+        <input id="grid-size-input" type="range" min="10" max="30" value="20">
+        <span id="grid-size-value" aria-live="polite">20</span>
       </div>
       <div class="control">
         <label for="speed-input">Speed</label>
         <input id="speed-input" type="range" min="10" max="400" value="120">
         <span id="speed-value" aria-live="polite">120ms</span>
+      </div>
+      <div class="control" data-mode="pathfinding">
+        <label for="wall-density-input">Wall Density</label>
+        <input id="wall-density-input" type="range" min="0" max="40" value="20">
+        <span id="wall-density-value" aria-live="polite">20%</span>
       </div>
       <div class="control" data-mode="searching">
         <label for="target-input">Target</label>
@@ -94,16 +104,6 @@
           <option value="astar">A* (A-Star)</option>
           <option value="greedy">Greedy Best-First Search</option>
         </select>
-      </div>
-      <div class="control" data-mode="pathfinding">
-        <label for="grid-size-input">Grid Size</label>
-        <input id="grid-size-input" type="range" min="10" max="30" value="20">
-        <span id="grid-size-value" aria-live="polite">20</span>
-      </div>
-      <div class="control" data-mode="pathfinding">
-        <label for="wall-density-input">Wall Density</label>
-        <input id="wall-density-input" type="range" min="0" max="40" value="20">
-        <span id="wall-density-value" aria-live="polite">20%</span>
       </div>
       <div class="control" data-mode="mdp">
         <label for="mdp-algorithm-select">Algorithm</label>

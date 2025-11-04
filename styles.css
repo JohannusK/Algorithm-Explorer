@@ -187,6 +187,35 @@ body {
   display: none !important;
 }
 
+.app[data-mode="mdp"] [data-mode="sorting"],
+.app[data-mode="mdp"] [data-mode="sorting"][hidden],
+.app[data-mode="mdp"] [data-mode="searching"],
+.app[data-mode="mdp"] [data-mode="searching"][hidden],
+.app[data-mode="mdp"] [data-mode="pathfinding"],
+.app[data-mode="mdp"] [data-mode="pathfinding"][hidden] {
+  display: none !important;
+}
+
+.app[data-mode="sorting"] [data-mode="mdp"],
+.app[data-mode="sorting"] [data-mode="mdp"][hidden],
+.app[data-mode="searching"] [data-mode="mdp"],
+.app[data-mode="searching"] [data-mode="mdp"][hidden],
+.app[data-mode="pathfinding"] [data-mode="mdp"],
+.app[data-mode="pathfinding"] [data-mode="mdp"][hidden] {
+  display: none !important;
+}
+
+/* Hide Items control in MDP mode */
+.app[data-mode="mdp"] #size-control {
+  display: none !important;
+}
+
+/* Hide Grid Size control in sorting/searching modes */
+.app[data-mode="sorting"] #grid-size-control,
+.app[data-mode="searching"] #grid-size-control {
+  display: none !important;
+}
+
 .button-group {
   display: flex;
   gap: 0.8rem;
