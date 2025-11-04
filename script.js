@@ -161,6 +161,30 @@ const searchingAlgorithms = {
       "Repeatedly halves the sorted list, comparing the middle value to quickly home in on the target.",
     run: binarySearch,
   },
+  jump: {
+    name: "Jump Search",
+    description:
+      "Jumps ahead by fixed blocks to find a range containing the target, then performs linear search within that block.",
+    run: jumpSearch,
+  },
+  exponential: {
+    name: "Exponential Search",
+    description:
+      "Finds a range by exponentially increasing the search bound, then performs binary search within that range.",
+    run: exponentialSearch,
+  },
+  interpolation: {
+    name: "Interpolation Search",
+    description:
+      "Estimates the target position based on value distribution, similar to how humans search a phone book.",
+    run: interpolationSearch,
+  },
+  fibonacci: {
+    name: "Fibonacci Search",
+    description:
+      "Uses Fibonacci numbers to divide the array into unequal parts, similar to binary search but with additions instead of divisions.",
+    run: fibonacciSearch,
+  },
 };
 
 const complexityCatalog = {
@@ -325,6 +349,46 @@ const complexityCatalog = {
         best: () => 1,
         average: (n) => Math.max(1, Math.log2(Math.max(n, 1))),
         worst: (n) => Math.max(1, Math.ceil(Math.log2(Math.max(n, 1) + 1))),
+      },
+    },
+    jump: {
+      time: { best: "O(1)", average: "O(√n)", worst: "O(√n)" },
+      space: "O(1)",
+      note: "Optimal jump size is √n; better than linear for large sorted arrays.",
+      estimate: {
+        best: () => 1,
+        average: (n) => Math.max(1, Math.sqrt(n)),
+        worst: (n) => Math.max(1, Math.sqrt(n) + Math.sqrt(n)),
+      },
+    },
+    exponential: {
+      time: { best: "O(1)", average: "O(log i)", worst: "O(log n)" },
+      space: "O(1)",
+      note: "Efficient for unbounded arrays; i is the position of target element.",
+      estimate: {
+        best: () => 1,
+        average: (n) => Math.max(1, Math.log2(Math.max(n, 1)) * 0.7),
+        worst: (n) => Math.max(1, Math.log2(Math.max(n, 1)) + 2),
+      },
+    },
+    interpolation: {
+      time: { best: "O(1)", average: "O(log log n)", worst: "O(n)" },
+      space: "O(1)",
+      note: "Very fast for uniformly distributed data; degrades to O(n) for non-uniform data.",
+      estimate: {
+        best: () => 1,
+        average: (n) => Math.max(1, Math.log2(Math.log2(Math.max(n, 2))) + 2),
+        worst: (n) => Math.max(1, n / 2),
+      },
+    },
+    fibonacci: {
+      time: { best: "O(1)", average: "O(log n)", worst: "O(log n)" },
+      space: "O(1)",
+      note: "Similar to binary search but uses Fibonacci numbers; good for sequential access.",
+      estimate: {
+        best: () => 1,
+        average: (n) => Math.max(1, Math.log2(Math.max(n, 1)) * 1.44),
+        worst: (n) => Math.max(1, Math.log2(Math.max(n, 1)) * 1.44 + 1),
       },
     },
   },
@@ -1765,6 +1829,275 @@ async function binarySearch(ctx, target) {
 
     ctx.clearActive();
     await ctx.pause();
+  }
+
+  ctx.clearActive();
+  ctx.setResult(false, -1);
+}
+
+async function jumpSearch(ctx, target) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n === 0) {
+    ctx.setResult(false, -1);
+    return;
+  }
+
+  const jumpSize = Math.floor(Math.sqrt(n));
+  let prev = 0;
+  let step = 0;
+
+  // Find the block where target might be
+  while (prev < n && arr[Math.min(prev, n - 1)] < target) {
+    step += 1;
+    ctx.setPass(step);
+    const jumpIndex = Math.min(prev + jumpSize, n - 1);
+    ctx.highlight([prev, jumpIndex]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[jumpIndex] === target) {
+      ctx.setResult(true, jumpIndex);
+      ctx.highlight([jumpIndex]);
+      await ctx.pause();
+      return;
+    }
+
+    prev += jumpSize;
+    ctx.clearActive();
+  }
+
+  // Linear search within the block
+  const start = Math.max(0, prev - jumpSize);
+  const end = Math.min(prev, n);
+
+  for (let i = start; i < end; i += 1) {
+    step += 1;
+    ctx.setPass(step);
+    ctx.highlight([i]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[i] === target) {
+      ctx.setResult(true, i);
+      ctx.highlight([i]);
+      await ctx.pause();
+      return;
+    }
+    ctx.clearActive();
+  }
+
+  ctx.clearActive();
+  ctx.setResult(false, -1);
+}
+
+async function exponentialSearch(ctx, target) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n === 0) {
+    ctx.setResult(false, -1);
+    return;
+  }
+
+  // Check if target is at first position
+  ctx.setPass(1);
+  ctx.highlight([0]);
+  ctx.recordComparison();
+  await ctx.pause();
+
+  if (arr[0] === target) {
+    ctx.setResult(true, 0);
+    ctx.highlight([0]);
+    await ctx.pause();
+    return;
+  }
+
+  ctx.clearActive();
+
+  // Find range for binary search by doubling the bound
+  let bound = 1;
+  let step = 1;
+  while (bound < n && arr[bound] < target) {
+    step += 1;
+    ctx.setPass(step);
+    ctx.highlight([bound]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[bound] === target) {
+      ctx.setResult(true, bound);
+      ctx.highlight([bound]);
+      await ctx.pause();
+      return;
+    }
+
+    ctx.clearActive();
+    bound *= 2;
+  }
+
+  // Binary search within the found range
+  let low = Math.floor(bound / 2);
+  let high = Math.min(bound, n - 1);
+
+  while (low <= high) {
+    step += 1;
+    const mid = Math.floor((low + high) / 2);
+    ctx.setPass(step);
+    ctx.highlight([low, mid, high]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[mid] === target) {
+      ctx.setResult(true, mid);
+      ctx.highlight([mid]);
+      await ctx.pause();
+      return;
+    }
+
+    if (arr[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+
+    ctx.clearActive();
+  }
+
+  ctx.clearActive();
+  ctx.setResult(false, -1);
+}
+
+async function interpolationSearch(ctx, target) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n === 0) {
+    ctx.setResult(false, -1);
+    return;
+  }
+
+  let low = 0;
+  let high = n - 1;
+  let step = 0;
+
+  while (low <= high && target >= arr[low] && target <= arr[high]) {
+    step += 1;
+    ctx.setPass(step);
+
+    // Handle case where all elements in range are the same
+    if (arr[low] === arr[high]) {
+      ctx.highlight([low]);
+      ctx.recordComparison();
+      await ctx.pause();
+
+      if (arr[low] === target) {
+        ctx.setResult(true, low);
+        ctx.highlight([low]);
+        await ctx.pause();
+        return;
+      }
+      break;
+    }
+
+    // Interpolation formula
+    const pos = low + Math.floor(
+      ((target - arr[low]) / (arr[high] - arr[low])) * (high - low)
+    );
+
+    ctx.highlight([low, pos, high]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[pos] === target) {
+      ctx.setResult(true, pos);
+      ctx.highlight([pos]);
+      await ctx.pause();
+      return;
+    }
+
+    if (arr[pos] < target) {
+      low = pos + 1;
+    } else {
+      high = pos - 1;
+    }
+
+    ctx.clearActive();
+  }
+
+  ctx.clearActive();
+  ctx.setResult(false, -1);
+}
+
+async function fibonacciSearch(ctx, target) {
+  const arr = ctx.data();
+  const n = arr.length;
+  if (n === 0) {
+    ctx.setResult(false, -1);
+    return;
+  }
+
+  // Generate Fibonacci numbers
+  let fibM2 = 0; // (m-2)'th Fibonacci number
+  let fibM1 = 1; // (m-1)'th Fibonacci number
+  let fibM = fibM2 + fibM1; // m'th Fibonacci number
+
+  // Find smallest Fibonacci number >= n
+  while (fibM < n) {
+    fibM2 = fibM1;
+    fibM1 = fibM;
+    fibM = fibM2 + fibM1;
+  }
+
+  let offset = -1;
+  let step = 0;
+
+  while (fibM > 1) {
+    step += 1;
+    ctx.setPass(step);
+
+    // Check if fibM2 is a valid index
+    const i = Math.min(offset + fibM2, n - 1);
+
+    ctx.highlight([i]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[i] === target) {
+      ctx.setResult(true, i);
+      ctx.highlight([i]);
+      await ctx.pause();
+      return;
+    }
+
+    if (arr[i] < target) {
+      // Move to the right section
+      fibM = fibM1;
+      fibM1 = fibM2;
+      fibM2 = fibM - fibM1;
+      offset = i;
+    } else {
+      // Move to the left section
+      fibM = fibM2;
+      fibM1 = fibM1 - fibM2;
+      fibM2 = fibM - fibM1;
+    }
+
+    ctx.clearActive();
+  }
+
+  // Check the last element
+  if (fibM1 === 1 && offset + 1 < n) {
+    step += 1;
+    ctx.setPass(step);
+    ctx.highlight([offset + 1]);
+    ctx.recordComparison();
+    await ctx.pause();
+
+    if (arr[offset + 1] === target) {
+      ctx.setResult(true, offset + 1);
+      ctx.highlight([offset + 1]);
+      await ctx.pause();
+      return;
+    }
   }
 
   ctx.clearActive();
