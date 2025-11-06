@@ -1,6 +1,7 @@
 const appElement = document.querySelector(".app");
 const arrayContainer = document.getElementById("array-container");
 const gridContainer = document.getElementById("grid-container");
+const patternContainer = document.getElementById("pattern-container");
 const sizeInput = document.getElementById("size-input");
 const sizeLabel = document.getElementById("size-label");
 const speedInput = document.getElementById("speed-input");
@@ -9,12 +10,16 @@ const sortingScenarioSelect = document.getElementById("sorting-scenario-select")
 const searchAlgorithmSelect = document.getElementById("search-algorithm-select");
 const searchScenarioSelect = document.getElementById("search-scenario-select");
 const pathfindingAlgorithmSelect = document.getElementById("pathfinding-algorithm-select");
+const patternAlgorithmSelect = document.getElementById("pattern-algorithm-select");
 const gridSizeInput = document.getElementById("grid-size-input");
 const gridSizeValue = document.getElementById("grid-size-value");
 const wallDensityInput = document.getElementById("wall-density-input");
 const wallDensityValue = document.getElementById("wall-density-value");
 const clearWallsBtn = document.getElementById("clear-walls-btn");
 const generateMazeBtn = document.getElementById("generate-maze-btn");
+const patternTextInput = document.getElementById("pattern-text-input");
+const patternPatternInput = document.getElementById("pattern-pattern-input");
+const patternRandomizeBtn = document.getElementById("pattern-randomize-btn");
 const sizeValue = document.getElementById("size-value");
 const speedValue = document.getElementById("speed-value");
 const randomizeBtn = document.getElementById("randomize-btn");
@@ -23,6 +28,8 @@ const targetInput = document.getElementById("target-input");
 const targetRandomizeBtn = document.getElementById("target-randomize-btn");
 const algorithmNameEl = document.getElementById("algorithm-name");
 const algorithmDescriptionEl = document.getElementById("algorithm-description");
+const algorithmDocOutput = document.getElementById("algorithm-doc-output");
+const docTabButtons = document.querySelectorAll("[data-doc-type]");
 
 const complexityTimeBest = document.getElementById("complexity-time-best");
 const complexityTimeAverage = document.getElementById("complexity-time-average");
@@ -44,11 +51,14 @@ const pathNodesVisitedOutput = document.getElementById("path-nodes-visited");
 const pathLengthOutput = document.getElementById("path-length");
 const pathFoundStatusOutput = document.getElementById("path-found-status");
 const pathStepCountOutput = document.getElementById("path-step-count");
+const patternComparisonsOutput = document.getElementById("pattern-comparisons");
+const patternMatchCountOutput = document.getElementById("pattern-match-count");
 
 const sortingStatsSection = document.querySelector('.stats[data-mode="sorting"]');
 const searchingStatsSection = document.querySelector('.stats[data-mode="searching"]');
 const pathfindingStatsSection = document.querySelector('.stats[data-mode="pathfinding"]');
 const mdpStatsSection = document.querySelector('.stats[data-mode="mdp"]');
+const patternStatsSection = document.querySelector('.stats[data-mode="pattern"]');
 
 const mdpAlgorithmSelect = document.getElementById("mdp-algorithm-select");
 const mdpScenarioSelect = document.getElementById("mdp-scenario-select");
@@ -73,6 +83,10 @@ const growthBarWorst = document.getElementById("growth-bar-worst");
 const growthBarActual = document.getElementById("growth-bar-actual");
 
 const tabs = document.querySelectorAll(".tab");
+const DOC_LANGUAGES = ["python", "c", "java"];
+const docTabButtonMap = {};
+const DEFAULT_PATTERN_SEQUENCE = "ACGGAATAACTGGAACG";
+const DEFAULT_PATTERN_NEEDLE = "AAC";
 
 const state = {
   mode: "sorting",
@@ -118,8 +132,23 @@ const state = {
       iterations: 0,
       maxDelta: Infinity,
       avgReward: 0,
-      episodePath: []
-    }
+      episodePath: [],
+    },
+  },
+  docs: {
+    view: "pseudocode",
+    language: "python",
+  },
+  pattern: {
+    text: [],
+    pattern: [],
+    matches: [],
+    activeRange: null,
+    alphabet: ["A", "C", "G", "T"],
+    result: {
+      comparisons: 0,
+      matches: 0,
+    },
   },
 };
 
@@ -249,6 +278,15 @@ const searchingAlgorithms = {
   },
 };
 
+const patternMatchingAlgorithms = {
+  naive: {
+    name: "Naive Pattern Match",
+    description:
+      "Slides the pattern across the sequence checking each window character by character.",
+    run: naivePatternMatch,
+  },
+};
+
 const pathfindingAlgorithms = {
   bfs: {
     name: "Breadth-First Search (BFS)",
@@ -282,6 +320,247 @@ const pathfindingAlgorithms = {
   },
 };
 
+const mdpDocs = {
+  valueIteration: {
+    pseudocode: `procedure valueIteration(S, A, P, R, gamma, threshold):
+  initialize V[s] ← 0 for every state s in S
+  repeat
+    delta ← 0
+    for each state s in S do
+      old ← V[s]
+      V[s] ← max over action a in A(s) of Σ_{s'} P(s' | s, a) · (R(s, a, s') + gamma · V[s'])
+      delta ← max(delta, |old - V[s]|)
+    end for
+  until delta < threshold
+  for each state s in S do
+    π[s] ← argmax over action a in A(s) of Σ_{s'} P(s' | s, a) · (R(s, a, s') + gamma · V[s'])
+  return V, π`,
+    implementations: {
+      python: `def value_iteration(states, actions, transitions, rewards, gamma, threshold):
+    values = {s: 0.0 for s in states}
+    while True:
+        delta = 0.0
+        for s in states:
+            old = values[s]
+            values[s] = max(
+                sum(prob * (rewards[s, a, s2] + gamma * values[s2])
+                    for s2, prob in transitions[s, a])
+                for a in actions[s]
+            )
+            delta = max(delta, abs(old - values[s]))
+        if delta < threshold:
+            break
+    policy = {}
+    for s in states:
+        policy[s] = max(
+            actions[s],
+            key=lambda a: sum(prob * (rewards[s, a, s2] + gamma * values[s2])
+                              for s2, prob in transitions[s, a]),
+        )
+    return values, policy`,
+      c: `void value_iteration(int state_count, int action_count, const double transitions[state_count][action_count][state_count], const double rewards[state_count][action_count][state_count], double gamma, double threshold, double values[state_count], int policy[state_count]) {
+    for (int s = 0; s < state_count; ++s) {
+        values[s] = 0.0;
+    }
+    while (1) {
+        double delta = 0.0;
+        for (int s = 0; s < state_count; ++s) {
+            double best = -1e18;
+            for (int a = 0; a < action_count; ++a) {
+                double total = 0.0;
+                for (int s2 = 0; s2 < state_count; ++s2) {
+                    double prob = transitions[s][a][s2];
+                    total += prob * (rewards[s][a][s2] + gamma * values[s2]);
+                }
+                if (total > best) best = total;
+            }
+            delta = fmax(delta, fabs(best - values[s]));
+            values[s] = best;
+        }
+        if (delta < threshold) break;
+    }
+    for (int s = 0; s < state_count; ++s) {
+        double best = -1e18;
+        int best_action = 0;
+        for (int a = 0; a < action_count; ++a) {
+            double total = 0.0;
+            for (int s2 = 0; s2 < state_count; ++s2) {
+                total += transitions[s][a][s2] * (rewards[s][a][s2] + gamma * values[s2]);
+            }
+            if (total > best) {
+                best = total;
+                best_action = a;
+            }
+        }
+        policy[s] = best_action;
+    }
+}`,
+      java: `public static ValueIterationResult valueIteration(List<State> states, List<Action> actions, TransitionModel transitions, RewardModel rewards, double gamma, double threshold) {
+    Map<State, Double> values = new HashMap<>();
+    states.forEach(s -> values.put(s, 0.0));
+    while (true) {
+        double delta = 0.0;
+        for (State s : states) {
+            double best = Double.NEGATIVE_INFINITY;
+            for (Action a : actions) {
+                double total = 0.0;
+                for (Transition t : transitions.of(s, a)) {
+                    total += t.probability() * (rewards.of(s, a, t.next()) + gamma * values.get(t.next()));
+                }
+                best = Math.max(best, total);
+            }
+            delta = Math.max(delta, Math.abs(best - values.get(s)));
+            values.put(s, best);
+        }
+        if (delta < threshold) {
+            break;
+        }
+    }
+    Map<State, Action> policy = new HashMap<>();
+    for (State s : states) {
+        policy.put(s, actions.stream().max(Comparator.comparingDouble(a -> transitions.of(s, a).stream()
+            .mapToDouble(t -> t.probability() * (rewards.of(s, a, t.next()) + gamma * values.get(t.next())))
+            .sum())).orElse(actions.get(0)));
+    }
+    return new ValueIterationResult(values, policy);
+}`,
+    },
+  },
+  policyIteration: {
+    pseudocode: `procedure policyIteration(S, A, P, R, gamma):
+  initialize π arbitrarily
+  repeat
+    // Policy evaluation
+    solve V for V[s] = Σ_{s'} P(s' | s, π[s]) · (R(s, π[s], s') + gamma · V[s'])
+    stable ← true
+    // Policy improvement
+    for each state s in S do
+      old ← π[s]
+      π[s] ← argmax over action a in A(s) of Σ_{s'} P(s' | s, a) · (R(s, a, s') + gamma · V[s'])
+      if old ≠ π[s] then stable ← false
+    end for
+  until stable
+  return V, π`,
+    implementations: {
+      python: `def policy_iteration(states, actions, transitions, rewards, gamma, threshold=1e-6):
+    policy = {s: actions[s][0] for s in states}
+    values = {s: 0.0 for s in states}
+    while True:
+        # Policy evaluation
+        while True:
+            delta = 0.0
+            for s in states:
+                old = values[s]
+                a = policy[s]
+                values[s] = sum(
+                    prob * (rewards[s, a, s2] + gamma * values[s2])
+                    for s2, prob in transitions[s, a]
+                )
+                delta = max(delta, abs(old - values[s]))
+            if delta < threshold:
+                break
+        stable = True
+        # Policy improvement
+        for s in states:
+            old = policy[s]
+            policy[s] = max(
+                actions[s],
+                key=lambda a: sum(prob * (rewards[s, a, s2] + gamma * values[s2])
+                                  for s2, prob in transitions[s, a]),
+            )
+            if policy[s] != old:
+                stable = False
+        if stable:
+            return values, policy`,
+      c: `void policy_iteration(int state_count, int action_count, const double transitions[state_count][action_count][state_count], const double rewards[state_count][action_count][state_count], double gamma, double threshold, double values[state_count], int policy[state_count]) {
+    for (int s = 0; s < state_count; ++s) {
+        policy[s] = 0;
+        values[s] = 0.0;
+    }
+    while (1) {
+        // Policy evaluation
+        while (1) {
+            double delta = 0.0;
+            for (int s = 0; s < state_count; ++s) {
+                double old = values[s];
+                int a = policy[s];
+                double total = 0.0;
+                for (int s2 = 0; s2 < state_count; ++s2) {
+                    total += transitions[s][a][s2] * (rewards[s][a][s2] + gamma * values[s2]);
+                }
+                values[s] = total;
+                delta = fmax(delta, fabs(old - total));
+            }
+            if (delta < threshold) break;
+        }
+        int stable = 1;
+        // Policy improvement
+        for (int s = 0; s < state_count; ++s) {
+            int old = policy[s];
+            double best = -1e18;
+            int best_action = old;
+            for (int a = 0; a < action_count; ++a) {
+                double total = 0.0;
+                for (int s2 = 0; s2 < state_count; ++s2) {
+                    total += transitions[s][a][s2] * (rewards[s][a][s2] + gamma * values[s2]);
+                }
+                if (total > best) {
+                    best = total;
+                    best_action = a;
+                }
+            }
+            policy[s] = best_action;
+            if (policy[s] != old) stable = 0;
+        }
+        if (stable) break;
+    }
+}`,
+      java: `public static PolicyIterationResult policyIteration(List<State> states, List<Action> actions, TransitionModel transitions, RewardModel rewards, double gamma, double threshold) {
+    Map<State, Action> policy = new HashMap<>();
+    Map<State, Double> values = new HashMap<>();
+    states.forEach(s -> {
+        policy.put(s, actions.get(0));
+        values.put(s, 0.0);
+    });
+    while (true) {
+        // Policy evaluation
+        while (true) {
+            double delta = 0.0;
+            for (State s : states) {
+                double old = values.get(s);
+                Action a = policy.get(s);
+                double total = 0.0;
+                for (Transition t : transitions.of(s, a)) {
+                    total += t.probability() * (rewards.of(s, a, t.next()) + gamma * values.get(t.next()));
+                }
+                values.put(s, total);
+                delta = Math.max(delta, Math.abs(old - total));
+            }
+            if (delta < threshold) {
+                break;
+            }
+        }
+        boolean stable = true;
+        // Policy improvement
+        for (State s : states) {
+            Action old = policy.get(s);
+            Action best = actions.stream().max(Comparator.comparingDouble(a -> transitions.of(s, a).stream()
+                .mapToDouble(t -> t.probability() * (rewards.of(s, a, t.next()) + gamma * values.get(t.next())))
+                .sum())).orElse(old);
+            policy.put(s, best);
+            if (best != old) {
+                stable = false;
+            }
+        }
+        if (stable) {
+            return new PolicyIterationResult(values, policy);
+        }
+    }
+}`,
+    },
+  },
+};
+
 const mdpAlgorithms = {
   valueIteration: {
     name: "Value Iteration",
@@ -295,6 +574,279 @@ const mdpAlgorithms = {
       "Alternates between policy evaluation (computing values for current policy) and policy improvement (making policy greedy) until policy stabilizes.",
     run: policyIteration,
   },
+};
+
+const documentationCatalog = {
+  sorting: {
+    bubble: {
+      pseudocode: `procedure bubbleSort(A):
+  n ← length(A)
+  repeat
+    swapped ← false
+    for i from 0 to n - 2 do
+      if A[i] > A[i + 1] then
+        swap A[i], A[i + 1]
+        swapped ← true
+    n ← n - 1
+  until not swapped`,
+      implementations: {
+        python: `def bubble_sort(arr):
+    n = len(arr)
+    while True:
+        swapped = False
+        for i in range(1, n):
+            if arr[i - 1] > arr[i]:
+                arr[i - 1], arr[i] = arr[i], arr[i - 1]
+                swapped = True
+        n -= 1
+        if not swapped or n <= 1:
+            break`,
+        c: `void bubble_sort(int arr[], int n) {
+    int swapped = 1;
+    while (swapped) {
+        swapped = 0;
+        for (int i = 1; i < n; ++i) {
+            if (arr[i - 1] > arr[i]) {
+                int tmp = arr[i];
+                arr[i] = arr[i - 1];
+                arr[i - 1] = tmp;
+                swapped = 1;
+            }
+        }
+        --n;
+    }
+}`,
+        java: `public static void bubbleSort(int[] arr) {
+    int n = arr.length;
+    boolean swapped = true;
+    while (swapped) {
+        swapped = false;
+        for (int i = 1; i < n; i++) {
+            if (arr[i - 1] > arr[i]) {
+                int tmp = arr[i];
+                arr[i] = arr[i - 1];
+                arr[i - 1] = tmp;
+                swapped = true;
+            }
+        }
+        n--;
+    }
+}`,
+      },
+    },
+    selection: {
+      pseudocode: `procedure selectionSort(A):
+  n ← length(A)
+  for i from 0 to n - 2 do
+    minIndex ← i
+    for j from i + 1 to n - 1 do
+      if A[j] < A[minIndex] then
+        minIndex ← j
+    swap A[i], A[minIndex]`,
+      implementations: {
+        python: `def selection_sort(arr):
+    n = len(arr)
+    for i in range(n - 1):
+        min_index = i
+        for j in range(i + 1, n):
+            if arr[j] < arr[min_index]:
+                min_index = j
+        arr[i], arr[min_index] = arr[min_index], arr[i]`,
+        c: `void selection_sort(int arr[], int n) {
+    for (int i = 0; i < n - 1; ++i) {
+        int min_index = i;
+        for (int j = i + 1; j < n; ++j) {
+            if (arr[j] < arr[min_index]) {
+                min_index = j;
+            }
+        }
+        int tmp = arr[i];
+        arr[i] = arr[min_index];
+        arr[min_index] = tmp;
+    }
+}`,
+        java: `public static void selectionSort(int[] arr) {
+    for (int i = 0; i < arr.length - 1; i++) {
+        int minIndex = i;
+        for (int j = i + 1; j < arr.length; j++) {
+            if (arr[j] < arr[minIndex]) {
+                minIndex = j;
+            }
+        }
+        int tmp = arr[i];
+        arr[i] = arr[minIndex];
+        arr[minIndex] = tmp;
+    }
+}`,
+      },
+    },
+  },
+  searching: {
+    linear: {
+      pseudocode: `procedure linearSearch(A, target):
+  for i from 0 to length(A) - 1 do
+    if A[i] = target then
+      return i
+  return -1`,
+      implementations: {
+        python: `def linear_search(arr, target):
+    for index, value in enumerate(arr):
+        if value == target:
+            return index
+    return -1`,
+        c: `int linear_search(const int arr[], int n, int target) {
+    for (int i = 0; i < n; ++i) {
+        if (arr[i] == target) {
+            return i;
+        }
+    }
+    return -1;
+}`,
+        java: `public static int linearSearch(int[] arr, int target) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == target) {
+            return i;
+        }
+    }
+    return -1;
+}`,
+      },
+    },
+    binary: {
+      pseudocode: `procedure binarySearch(A, target):
+  low ← 0
+  high ← length(A) - 1
+  while low ≤ high do
+    mid ← ⌊(low + high) / 2⌋
+    if A[mid] = target then
+      return mid
+    else if A[mid] < target then
+      low ← mid + 1
+    else
+      high ← mid - 1
+  return -1`,
+      implementations: {
+        python: `def binary_search(arr, target):
+    low, high = 0, len(arr) - 1
+    while low <= high:
+        mid = (low + high) // 2
+        if arr[mid] == target:
+            return mid
+        if arr[mid] < target:
+            low = mid + 1
+        else:
+            high = mid - 1
+    return -1`,
+        c: `int binary_search(const int arr[], int n, int target) {
+    int low = 0, high = n - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (arr[mid] == target) {
+            return mid;
+        } else if (arr[mid] < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}`,
+        java: `public static int binarySearch(int[] arr, int target) {
+    int low = 0, high = arr.length - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (arr[mid] == target) {
+            return mid;
+        }
+        if (arr[mid] < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}`,
+      },
+    },
+  },
+  pattern: {
+    naive: {
+      pseudocode: `procedure naiveMatch(T, P):
+  n ← length(T)
+  m ← length(P)
+  if m = 0 then return {0}
+  for i from 0 to n - m do
+    match ← true
+    for j from 0 to m - 1 do
+      if T[i + j] ≠ P[j] then
+        match ← false
+        break
+    if match then
+      report i`,
+      implementations: {
+        python: `def naive_match(text, pattern):
+    n, m = len(text), len(pattern)
+    if m == 0:
+        return [0]
+    matches = []
+    for i in range(n - m + 1):
+        match = True
+        for j in range(m):
+            if text[i + j] != pattern[j]:
+                match = False
+                break
+        if match:
+            matches.append(i)
+    return matches`,
+        c: `void naive_match(const char *text, const char *pattern, int *out, int *count) {
+    int n = strlen(text);
+    int m = strlen(pattern);
+    *count = 0;
+    if (m == 0) {
+        out[(*count)++] = 0;
+        return;
+    }
+    for (int i = 0; i <= n - m; ++i) {
+        int match = 1;
+        for (int j = 0; j < m; ++j) {
+            if (text[i + j] != pattern[j]) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) {
+            out[(*count)++] = i;
+        }
+    }
+}`,
+        java: `public static List<Integer> naiveMatch(String text, String pattern) {
+    List<Integer> matches = new ArrayList<>();
+    int n = text.length();
+    int m = pattern.length();
+    if (m == 0) {
+        matches.add(0);
+        return matches;
+    }
+    for (int i = 0; i <= n - m; i++) {
+        boolean match = true;
+        for (int j = 0; j < m; j++) {
+            if (text.charAt(i + j) != pattern.charAt(j)) {
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            matches.add(i);
+        }
+    }
+    return matches;
+}`,
+      },
+    },
+  },
+  pathfinding: {},
+  "graph-pathfinding": {},
+  mdp: mdpDocs,
 };
 
 const complexityCatalog = {
@@ -502,6 +1054,24 @@ const complexityCatalog = {
       },
     },
   },
+  pattern: {
+    naive: {
+      time: { best: "O(n - m + 1)", average: "O((n-m+1)·m)", worst: "O((n-m+1)·m)" },
+      space: "O(1)",
+      note: "Slides the pattern across the sequence and compares characters directly.",
+      estimate: {
+        best: () =>
+          Math.max(
+            0,
+            state.pattern.text.length - Math.max(state.pattern.pattern.length, 1) + 1,
+          ),
+        average: () =>
+          state.pattern.text.length * Math.max(state.pattern.pattern.length, 1),
+        worst: () =>
+          state.pattern.text.length * Math.max(state.pattern.pattern.length, 1),
+      },
+    },
+  },
   pathfinding: {
     bfs: {
       time: { best: "O(V+E)", average: "O(V+E)", worst: "O(V+E)" },
@@ -598,8 +1168,119 @@ function invalidateLastRun() {
 function getAlgorithmLibrary(mode = state.mode) {
   if (mode === "pathfinding") return pathfindingAlgorithms;
   if (mode === "searching") return searchingAlgorithms;
+  if (mode === "pattern") return patternMatchingAlgorithms;
   if (mode === "mdp") return mdpAlgorithms;
   return sortingAlgorithms;
+}
+
+function getActiveAlgorithmKey(mode = state.mode) {
+  if (mode === "pathfinding") {
+    return pathfindingAlgorithmSelect?.value || "bfs";
+  }
+  if (mode === "searching") {
+    return searchAlgorithmSelect?.value || "linear";
+  }
+  if (mode === "pattern") {
+    return patternAlgorithmSelect?.value || "naive";
+  }
+  if (mode === "mdp") {
+    return mdpAlgorithmSelect?.value || "valueIteration";
+  }
+  return sortingAlgorithmSelect?.value || "bubble";
+}
+
+function selectImplementations(implementations = {}) {
+  return DOC_LANGUAGES.reduce((acc, lang) => {
+    const snippet = implementations?.[lang];
+    if (typeof snippet === "string") {
+      const trimmed = snippet.trim();
+      if (trimmed.length > 0) {
+        acc[lang] = trimmed;
+      }
+    }
+    return acc;
+  }, {});
+}
+
+function renderAlgorithmDocumentation(key, mode = state.mode) {
+  if (!algorithmDocOutput) {
+    return;
+  }
+
+  const docsForMode = documentationCatalog[mode] || {};
+  const docs = key ? docsForMode[key] : null;
+  const sanitizedImplementations = docs ? selectImplementations(docs.implementations) : {};
+  const availableLanguages = DOC_LANGUAGES.filter((lang) => sanitizedImplementations[lang]);
+
+  if (state.docs.view !== "pseudocode" && !availableLanguages.includes(state.docs.view)) {
+    if (availableLanguages.length > 0) {
+      state.docs.view = availableLanguages[0];
+      state.docs.language = availableLanguages[0];
+    } else {
+      state.docs.view = "pseudocode";
+    }
+  }
+
+  DOC_LANGUAGES.forEach((lang) => {
+    const button = docTabButtonMap[lang];
+    if (!button) {
+      return;
+    }
+    const available = availableLanguages.includes(lang);
+    button.disabled = !available;
+    const isActive = state.docs.view === lang;
+    button.classList.toggle("active", available && isActive);
+    button.setAttribute("aria-selected", available && isActive ? "true" : "false");
+  });
+
+  const pseudocodeButton = docTabButtonMap.pseudocode;
+  if (pseudocodeButton) {
+    const isActive = state.docs.view === "pseudocode";
+    pseudocodeButton.classList.toggle("active", isActive);
+    pseudocodeButton.setAttribute("aria-selected", String(isActive));
+    pseudocodeButton.disabled = false;
+  }
+
+  if (!key || !docs) {
+    const message = "Documentation coming soon.";
+    algorithmDocOutput.textContent = key ? message : "Select an algorithm to view documentation.";
+    return;
+  }
+
+  const pseudocode = typeof docs.pseudocode === "string" ? docs.pseudocode.trim() : "";
+
+  if (state.docs.view === "pseudocode") {
+    algorithmDocOutput.textContent = pseudocode.length > 0 ? pseudocode : "Pseudocode coming soon.";
+    return;
+  }
+
+  const snippet = sanitizedImplementations[state.docs.view];
+  algorithmDocOutput.textContent =
+    typeof snippet === "string" && snippet.length > 0 ? snippet : "Implementation coming soon.";
+}
+
+function initializeDocTabs() {
+  docTabButtons.forEach((button) => {
+    const type = button.dataset.docType;
+    if (!type) {
+      return;
+    }
+    docTabButtonMap[type] = button;
+    button.addEventListener("click", () => {
+      if (button.disabled) {
+        return;
+      }
+      if (type === "pseudocode") {
+        state.docs.view = "pseudocode";
+      } else {
+        state.docs.view = type;
+        state.docs.language = type;
+      }
+      const key = getActiveAlgorithmKey(state.mode);
+      renderAlgorithmDocumentation(key, state.mode);
+    });
+  });
+  renderAlgorithmDocumentation(null, state.mode);
 }
 
 function updateAlgorithmDetails(key, mode = state.mode) {
@@ -610,14 +1291,17 @@ function updateAlgorithmDetails(key, mode = state.mode) {
   }
   algorithmNameEl.textContent = algorithm.name;
   algorithmDescriptionEl.textContent = algorithm.description;
+  state.docs.view = "pseudocode";
+  renderAlgorithmDocumentation(key, mode);
   updateComplexityPanel(mode, key);
 }
 
-function updateComplexityPanel(
-  mode = state.mode,
-  key = mode === "searching" ? searchAlgorithmSelect.value : sortingAlgorithmSelect.value,
-) {
-  const entry = complexityCatalog[mode]?.[key];
+function updateComplexityPanel(mode = state.mode, key) {
+  let algorithmKey = key;
+  if (!algorithmKey) {
+    algorithmKey = getActiveAlgorithmKey(mode);
+  }
+  const entry = complexityCatalog[mode]?.[algorithmKey];
   if (!entry) {
     return;
   }
@@ -694,16 +1378,14 @@ function setGrowthBar(element, value, maxValue, fallbackLabel) {
   }
 }
 
-function updateGrowthVisualization(
-  mode = state.mode,
-  key = mode === "searching" ? searchAlgorithmSelect.value : sortingAlgorithmSelect.value,
-) {
-  const n = state.dataset.length;
+function updateGrowthVisualization(mode = state.mode, key) {
+  const algorithmKey = key || getActiveAlgorithmKey(mode);
+  const n = mode === "pattern" ? state.pattern.text.length : state.dataset.length;
   if (growthNEl) {
     growthNEl.textContent = n;
   }
 
-  const estimates = computeEstimates(mode, key, n) || {
+  const estimates = computeEstimates(mode, algorithmKey, n) || {
     best: null,
     average: null,
     worst: null,
@@ -713,7 +1395,7 @@ function updateGrowthVisualization(
   if (
     state.lastRun &&
     state.lastRun.mode === mode &&
-    state.lastRun.algorithmKey === key &&
+    state.lastRun.algorithmKey === algorithmKey &&
     state.lastRun.n === n
   ) {
     actualValue = state.lastRun.actual.operations;
@@ -749,6 +1431,150 @@ function resetSearchResult() {
   state.searchResult.found = false;
   state.searchResult.index = null;
   updateSearchOutputs();
+}
+
+function normalizeSequence(value = "") {
+  const raw = value == null ? "" : String(value);
+  return raw.toUpperCase().replace(/[^ACGT]/g, "");
+}
+
+function setPatternText(sequence) {
+  const normalized = normalizeSequence(sequence) || DEFAULT_PATTERN_SEQUENCE;
+  state.pattern.text = normalized.split("");
+  if (patternTextInput && patternTextInput.value !== normalized) {
+    patternTextInput.value = normalized;
+  }
+  invalidateLastRun();
+  resetPatternResults();
+}
+
+function setPatternNeedle(sequence) {
+  const normalized = normalizeSequence(sequence) || DEFAULT_PATTERN_NEEDLE;
+  state.pattern.pattern = normalized.split("");
+  if (patternPatternInput && patternPatternInput.value !== normalized) {
+    patternPatternInput.value = normalized;
+  }
+  invalidateLastRun();
+  resetPatternResults();
+}
+
+function updatePatternStats() {
+  if (patternComparisonsOutput) {
+    patternComparisonsOutput.textContent = state.pattern.result.comparisons;
+  }
+  if (patternMatchCountOutput) {
+    patternMatchCountOutput.textContent = state.pattern.result.matches;
+  }
+}
+
+function renderPatternView() {
+  if (!patternContainer) {
+    return;
+  }
+  patternContainer.innerHTML = "";
+  const { text, matches, pattern, activeRange } = state.pattern;
+  const patternLength = pattern.length;
+
+  const sequenceRow = document.createElement("div");
+  sequenceRow.className = "pattern-row sequence";
+  const needleRow = document.createElement("div");
+  needleRow.className = "pattern-row needle";
+
+  text.forEach((char, index) => {
+    const matchStart = matches.find(
+      (start) => index >= start && index < start + patternLength,
+    );
+    const seqCell = document.createElement("span");
+    seqCell.textContent = char || "—";
+    if (matchStart !== undefined) {
+      seqCell.classList.add("match");
+    }
+    if (
+      activeRange &&
+      index >= activeRange.start &&
+      index < activeRange.start + activeRange.length
+    ) {
+      seqCell.classList.add("active");
+    }
+    sequenceRow.appendChild(seqCell);
+
+    const needleCell = document.createElement("span");
+    if (
+      activeRange &&
+      index >= activeRange.start &&
+      index < activeRange.start + patternLength
+    ) {
+      const patternIndex = index - activeRange.start;
+      needleCell.textContent = pattern[patternIndex] || "";
+      needleCell.classList.add("active");
+    } else {
+      needleCell.textContent = " ";
+    }
+
+    if (matchStart !== undefined) {
+      needleCell.classList.add("match");
+      const patternIndex = index - matchStart;
+      needleCell.textContent = pattern[patternIndex] || "";
+    }
+    needleRow.appendChild(needleCell);
+  });
+
+  patternContainer.appendChild(sequenceRow);
+  patternContainer.appendChild(needleRow);
+  const isPatternMode = state.mode === "pattern";
+  patternContainer.classList.toggle("active", isPatternMode);
+  patternContainer.hidden = !isPatternMode;
+}
+
+function resetPatternResults() {
+  state.pattern.result.comparisons = 0;
+  state.pattern.result.matches = 0;
+  state.pattern.matches = [];
+  state.pattern.activeRange = null;
+  updatePatternStats();
+  renderPatternView();
+  if (state.mode === "pattern") {
+    updateGrowthVisualization("pattern", patternAlgorithmSelect ? patternAlgorithmSelect.value : null);
+  }
+}
+
+function randomizePatternSequence(length = state.pattern.text.length || 16) {
+  const targetLength = Math.max(8, Math.min(length, 60));
+  const sequence = Array.from({ length: targetLength }, () => {
+    const idx = randomInt(0, state.pattern.alphabet.length - 1);
+    return state.pattern.alphabet[idx];
+  }).join("");
+  setPatternText(sequence);
+}
+
+function createPatternContext() {
+  const delay = Math.max(10, Number(speedInput.value));
+  return {
+    text: state.pattern.text,
+    pattern: state.pattern.pattern,
+    pause: () =>
+      new Promise((resolve) => {
+        setTimeout(resolve, delay);
+      }),
+    highlightRange(start, length) {
+      state.pattern.activeRange = { start, length };
+      renderPatternView();
+    },
+    clearHighlight() {
+      state.pattern.activeRange = null;
+      renderPatternView();
+    },
+    recordComparison() {
+      state.pattern.result.comparisons += 1;
+      updatePatternStats();
+    },
+    recordMatch(start) {
+      state.pattern.matches.push(start);
+      state.pattern.result.matches += 1;
+      renderPatternView();
+      updatePatternStats();
+    },
+  };
 }
 
 function updateStats() {
@@ -801,11 +1627,13 @@ function updateActionButtonState(running = state.running) {
   if (running) {
     if (state.mode === "pathfinding") text = "Finding Path...";
     else if (state.mode === "searching") text = "Searching...";
+    else if (state.mode === "pattern") text = "Matching...";
     else if (state.mode === "mdp") text = "Computing...";
     else text = "Sorting...";
   } else {
     if (state.mode === "pathfinding") text = "Start Pathfinding";
     else if (state.mode === "searching") text = "Start Searching";
+    else if (state.mode === "pattern") text = "Start Matching";
     else if (state.mode === "mdp") {
       const algorithmKey = mdpAlgorithmSelect.value;
       const algorithm = mdpAlgorithms[algorithmKey];
@@ -821,6 +1649,8 @@ function updateRandomizeButtonState() {
     randomizeBtn.textContent = "Regenerate Maze";
   } else if (state.mode === "mdp") {
     randomizeBtn.textContent = "Randomize Rewards";
+  } else if (state.mode === "pattern") {
+    randomizeBtn.textContent = "Randomize Sequence";
   } else {
     randomizeBtn.textContent = "Shuffle";
   }
@@ -839,6 +1669,18 @@ function toggleControls(disabled) {
   }
   if (targetRandomizeBtn) {
     targetRandomizeBtn.disabled = disabled;
+  }
+  if (patternAlgorithmSelect) {
+    patternAlgorithmSelect.disabled = disabled;
+  }
+  if (patternTextInput) {
+    patternTextInput.disabled = disabled;
+  }
+  if (patternPatternInput) {
+    patternPatternInput.disabled = disabled;
+  }
+  if (patternRandomizeBtn) {
+    patternRandomizeBtn.disabled = disabled;
   }
   tabs.forEach((tab) => {
     tab.disabled = disabled;
@@ -1243,6 +2085,46 @@ async function runSearch() {
     captureRunSummary("searching", algorithmKey);
   } finally {
     clearActive();
+    state.running = false;
+    toggleControls(false);
+  }
+}
+
+async function runPatternMatching() {
+  if (state.running) {
+    return;
+  }
+  const algorithmKey = patternAlgorithmSelect?.value || "naive";
+  const algorithm = patternMatchingAlgorithms[algorithmKey];
+  if (!algorithm || state.pattern.text.length === 0) {
+    return;
+  }
+
+  state.running = true;
+  toggleControls(true);
+  resetPatternResults();
+  invalidateLastRun();
+
+  const context = createPatternContext();
+
+  try {
+    await algorithm.run(context);
+    state.lastRun = {
+      mode: "pattern",
+      algorithmKey,
+      n: state.pattern.text.length,
+      actual: {
+        comparisons: state.pattern.result.comparisons,
+        writes: 0,
+        passes: 0,
+        operations: state.pattern.result.comparisons,
+      },
+      matches: [...state.pattern.matches],
+      timestamp: Date.now(),
+    };
+    updateGrowthVisualization("pattern", algorithmKey);
+  } finally {
+    context.clearHighlight();
     state.running = false;
     toggleControls(false);
   }
@@ -2215,6 +3097,35 @@ async function interpolationSearch(ctx, target) {
 
   ctx.clearActive();
   ctx.setResult(false, -1);
+}
+
+async function naivePatternMatch(ctx) {
+  const text = ctx.text;
+  const pattern = ctx.pattern;
+  const n = text.length;
+  const m = pattern.length;
+
+  if (m === 0) {
+    ctx.recordMatch(0);
+    return;
+  }
+
+  for (let i = 0; i <= n - m; i += 1) {
+    let matched = true;
+    for (let j = 0; j < m; j += 1) {
+      ctx.highlightRange(i, j + 1);
+      ctx.recordComparison();
+      await ctx.pause();
+      if (text[i + j] !== pattern[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) {
+      ctx.recordMatch(i);
+      await ctx.pause();
+    }
+  }
 }
 
 async function fibonacciSearch(ctx, target) {
@@ -3436,7 +4347,13 @@ function setMode(mode, { force = false } = {}) {
   if (!force && mode === state.mode) {
     return;
   }
-  if (mode !== "sorting" && mode !== "searching" && mode !== "pathfinding" && mode !== "mdp") {
+  if (
+    mode !== "sorting" &&
+    mode !== "searching" &&
+    mode !== "pathfinding" &&
+    mode !== "mdp" &&
+    mode !== "pattern"
+  ) {
     return;
   }
 
@@ -3451,6 +4368,9 @@ function setMode(mode, { force = false } = {}) {
   searchingStatsSection.hidden = mode !== "searching";
   pathfindingStatsSection.hidden = mode !== "pathfinding";
   mdpStatsSection.hidden = mode !== "mdp";
+  if (patternStatsSection) {
+    patternStatsSection.hidden = mode !== "pattern";
+  }
   updateActionButtonState();
   updateRandomizeButtonState();
 
@@ -3479,6 +4399,10 @@ function setMode(mode, { force = false } = {}) {
   if (mode === "pathfinding" || mode === "mdp") {
     arrayContainer.hidden = true;
     gridContainer.hidden = false;
+    if (patternContainer) {
+      patternContainer.hidden = true;
+      patternContainer.classList.remove("active");
+    }
     if (state.grid.cells.length === 0) {
       generateGrid(state.grid.size);
     }
@@ -3486,9 +4410,22 @@ function setMode(mode, { force = false } = {}) {
     if (mode === "mdp") {
       loadMDPScenario(mdpScenarioSelect.value);
     }
+  } else if (mode === "pattern") {
+    arrayContainer.hidden = true;
+    gridContainer.hidden = true;
+    if (patternContainer) {
+      patternContainer.hidden = false;
+      patternContainer.classList.add("active");
+    }
+    renderPatternView();
+    updatePatternStats();
   } else {
     arrayContainer.hidden = false;
     gridContainer.hidden = true;
+    if (patternContainer) {
+      patternContainer.hidden = true;
+      patternContainer.classList.remove("active");
+    }
 
     if (mode === "searching") {
       state.dataset.sort((a, b) => a - b);
@@ -3511,6 +4448,8 @@ function setMode(mode, { force = false } = {}) {
     key = pathfindingAlgorithmSelect.value;
   } else if (mode === "searching") {
     key = searchAlgorithmSelect.value;
+  } else if (mode === "pattern") {
+    key = patternAlgorithmSelect.value;
   } else if (mode === "mdp") {
     key = mdpAlgorithmSelect.value;
   } else {
@@ -3553,6 +4492,17 @@ searchAlgorithmSelect.addEventListener("change", () => {
   resetSearchResult();
 });
 
+if (patternAlgorithmSelect) {
+  patternAlgorithmSelect.addEventListener("change", () => {
+    if (state.running) {
+      return;
+    }
+    invalidateLastRun();
+    updateAlgorithmDetails(patternAlgorithmSelect.value, "pattern");
+    resetPatternResults();
+  });
+}
+
 sortingScenarioSelect.addEventListener("change", () => {
   if (state.running) {
     return;
@@ -3575,6 +4525,8 @@ randomizeBtn.addEventListener("click", () => {
     generateRandomWalls(density);
   } else if (state.mode === "mdp") {
     randomizeMDPRewards();
+  } else if (state.mode === "pattern") {
+    randomizePatternSequence();
   } else {
     generateArray(Number(sizeInput.value));
   }
@@ -3585,6 +4537,8 @@ actionBtn.addEventListener("click", () => {
     runSort();
   } else if (state.mode === "searching") {
     runSearch();
+  } else if (state.mode === "pattern") {
+    runPatternMatching();
   } else if (state.mode === "mdp") {
     runMDP();
   } else if (state.mode === "pathfinding") {
@@ -3632,6 +4586,33 @@ if (targetRandomizeBtn) {
     invalidateLastRun();
     resetSearchResult();
     updateGrowthVisualization("searching", searchAlgorithmSelect.value);
+  });
+}
+
+if (patternTextInput) {
+  patternTextInput.addEventListener("input", () => {
+    if (state.running) {
+      return;
+    }
+    setPatternText(patternTextInput.value);
+  });
+}
+
+if (patternPatternInput) {
+  patternPatternInput.addEventListener("input", () => {
+    if (state.running) {
+      return;
+    }
+    setPatternNeedle(patternPatternInput.value);
+  });
+}
+
+if (patternRandomizeBtn) {
+  patternRandomizeBtn.addEventListener("click", () => {
+    if (state.running) {
+      return;
+    }
+    randomizePatternSequence();
   });
 }
 
@@ -3746,6 +4727,9 @@ state.searchTarget = targetInput ? sanitizeTarget(targetInput.value) : state.sea
 if (targetInput) {
   targetInput.value = state.searchTarget;
 }
+setPatternText(patternTextInput ? patternTextInput.value : DEFAULT_PATTERN_SEQUENCE);
+setPatternNeedle(patternPatternInput ? patternPatternInput.value : DEFAULT_PATTERN_NEEDLE);
+initializeDocTabs();
 updateAlgorithmDetails(sortingAlgorithmSelect.value, "sorting");
 resetSearchResult();
 generateArray(Number(sizeInput.value));

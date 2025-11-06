@@ -14,6 +14,7 @@
       <nav class="tabs" role="tablist" aria-label="Algorithm categories">
         <button type="button" class="tab active" data-tab="sorting" role="tab" aria-selected="true">Sorting</button>
         <button type="button" class="tab" data-tab="searching" role="tab" aria-selected="false">Searching</button>
+        <button type="button" class="tab" data-tab="pattern" role="tab" aria-selected="false">Pattern Matching</button>
         <button type="button" class="tab" data-tab="pathfinding" role="tab" aria-selected="false">Pathfinding</button>
         <button type="button" class="tab" data-tab="mdp" role="tab" aria-selected="false">MDP/RL</button>
       </nav>
@@ -94,6 +95,21 @@
           <input id="target-input" type="number" min="0" max="100" value="50">
           <button id="target-randomize-btn" type="button">Random</button>
         </div>
+      </div>
+      <div class="control" data-mode="pattern">
+        <label for="pattern-algorithm-select">Algorithm</label>
+        <select id="pattern-algorithm-select">
+          <option value="naive">Naive Pattern Match</option>
+        </select>
+      </div>
+      <div class="control pattern-control" data-mode="pattern">
+        <label for="pattern-text-input">Sequence</label>
+        <textarea id="pattern-text-input" rows="3" spellcheck="false">ACGGAATAACTGGAACG</textarea>
+        <button id="pattern-randomize-btn" type="button">Randomize Sequence</button>
+      </div>
+      <div class="control" data-mode="pattern">
+        <label for="pattern-pattern-input">Pattern</label>
+        <input id="pattern-pattern-input" type="text" value="AAC" spellcheck="false" maxlength="12">
       </div>
       <div class="control" data-mode="pathfinding">
         <label for="pathfinding-algorithm-select">Algorithm</label>
@@ -187,6 +203,16 @@
         <output id="search-found-status">No</output>
       </div>
     </section>
+    <section class="stats" aria-label="Pattern statistics" data-mode="pattern" hidden>
+      <div class="stat">
+        <span class="label">Comparisons</span>
+        <output id="pattern-comparisons">0</output>
+      </div>
+      <div class="stat">
+        <span class="label">Matches</span>
+        <output id="pattern-match-count">0</output>
+      </div>
+    </section>
 
     <section class="stats" aria-label="Pathfinding statistics" data-mode="pathfinding" hidden>
       <div class="stat">
@@ -229,6 +255,7 @@
     <section class="visualization" aria-live="polite" aria-label="Data visualization">
       <div id="array-container" class="array"></div>
       <div id="grid-container" class="grid" hidden></div>
+      <div id="pattern-container" class="pattern-view" hidden aria-label="Pattern visualization"></div>
     </section>
 
     <section class="details" aria-live="polite">
@@ -237,6 +264,20 @@
         <p id="algorithm-description">
           Repeatedly steps through the list, swapping adjacent elements when they are out of order. Largest values bubble to the end each pass.
         </p>
+        <div class="doc-viewer" aria-live="polite">
+          <div class="doc-viewer-header">
+            <h3>Reference</h3>
+            <div class="doc-tabs" role="tablist" aria-label="Documentation format">
+              <button type="button" class="doc-tab active" data-doc-type="pseudocode" role="tab" aria-selected="true">
+                Pseudocode
+              </button>
+              <button type="button" class="doc-tab" data-doc-type="python" role="tab" aria-selected="false">Python</button>
+              <button type="button" class="doc-tab" data-doc-type="c" role="tab" aria-selected="false">C</button>
+              <button type="button" class="doc-tab" data-doc-type="java" role="tab" aria-selected="false">Java</button>
+            </div>
+          </div>
+          <pre id="algorithm-doc-output">Select an algorithm to view documentation.</pre>
+        </div>
       </div>
       <div class="complexity" aria-label="Algorithm complexity overview">
         <h3>Complexity &amp; Growth</h3>
@@ -285,6 +326,18 @@
         </div>
       </div>
     </section>
+    <footer class="site-credit" aria-label="Site attribution">
+      <p>
+        Created by 
+        <a href="https://pure.fo/en/persons/j%C3%B3hannus-kristmundsson" target="_blank" rel="noopener">
+          Jóhannus Kristmundsson
+        </a>
+        and
+        <a href="https://www.pure.fo/en/persons/j%C3%A1kup-sv%C3%B8%C3%B0stein/" target="_blank" rel="noopener">
+          Jákup Svøðstein
+        </a>, Fróðskapaarsetur Føroya.
+      </p>
+    </footer>
   </main>
 
   <script src="script.js"></script>
