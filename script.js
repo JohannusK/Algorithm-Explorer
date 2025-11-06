@@ -19,7 +19,6 @@ const clearWallsBtn = document.getElementById("clear-walls-btn");
 const generateMazeBtn = document.getElementById("generate-maze-btn");
 const patternTextInput = document.getElementById("pattern-text-input");
 const patternPatternInput = document.getElementById("pattern-pattern-input");
-const patternRandomizeBtn = document.getElementById("pattern-randomize-btn");
 const sizeValue = document.getElementById("size-value");
 const speedValue = document.getElementById("speed-value");
 const randomizeBtn = document.getElementById("randomize-btn");
@@ -1678,9 +1677,6 @@ function toggleControls(disabled) {
   }
   if (patternPatternInput) {
     patternPatternInput.disabled = disabled;
-  }
-  if (patternRandomizeBtn) {
-    patternRandomizeBtn.disabled = disabled;
   }
   tabs.forEach((tab) => {
     tab.disabled = disabled;
@@ -4607,14 +4603,6 @@ if (patternPatternInput) {
   });
 }
 
-if (patternRandomizeBtn) {
-  patternRandomizeBtn.addEventListener("click", () => {
-    if (state.running) {
-      return;
-    }
-    randomizePatternSequence();
-  });
-}
 
 // Pathfinding event listeners
 if (pathfindingAlgorithmSelect) {
