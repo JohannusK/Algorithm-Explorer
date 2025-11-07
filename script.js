@@ -633,6 +633,48 @@ const documentationCatalog = {
 }`,
       },
     },
+    insertion: {
+      pseudocode: `procedure insertionSort(A):
+  for i from 1 to length(A) - 1 do
+    key ← A[i]
+    j ← i - 1
+    while j ≥ 0 and A[j] > key do
+      A[j + 1] ← A[j]
+      j ← j - 1
+    A[j + 1] ← key`,
+      implementations: {
+        python: `def insertion_sort(arr):
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i - 1
+        while j >= 0 and arr[j] > key:
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = key`,
+        c: `void insertion_sort(int arr[], int n) {
+    for (int i = 1; i < n; ++i) {
+        int key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            --j;
+        }
+        arr[j + 1] = key;
+    }
+}`,
+        java: `public static void insertionSort(int[] arr) {
+    for (int i = 1; i < arr.length; i++) {
+        int key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+}`,
+      },
+    },
     selection: {
       pseudocode: `procedure selectionSort(A):
   n ← length(A)
@@ -675,6 +717,231 @@ const documentationCatalog = {
         int tmp = arr[i];
         arr[i] = arr[minIndex];
         arr[minIndex] = tmp;
+    }
+}`,
+      },
+    },
+    quick: {
+      pseudocode: `procedure quickSort(A, low, high):
+  if low ≥ high then return
+  pivotIndex ← partition(A, low, high)
+  quickSort(A, low, pivotIndex - 1)
+  quickSort(A, pivotIndex + 1, high)
+
+procedure partition(A, low, high):
+  pivot ← A[high]
+  i ← low
+  for j from low to high - 1 do
+    if A[j] ≤ pivot then
+      swap A[i], A[j]
+      i ← i + 1
+  swap A[i], A[high]
+  return i`,
+      implementations: {
+        python: `def quick_sort(arr):
+    def _sort(lo, hi):
+        if lo >= hi:
+            return
+        pivot = partition(lo, hi)
+        _sort(lo, pivot - 1)
+        _sort(pivot + 1, hi)
+
+    def partition(lo, hi):
+        pivot = arr[hi]
+        i = lo
+        for j in range(lo, hi):
+            if arr[j] <= pivot:
+                arr[i], arr[j] = arr[j], arr[i]
+                i += 1
+        arr[i], arr[hi] = arr[hi], arr[i]
+        return i
+
+    _sort(0, len(arr) - 1)`,
+        c: `static int partition(int arr[], int low, int high) {
+    int pivot = arr[high];
+    int i = low;
+    for (int j = low; j < high; ++j) {
+        if (arr[j] <= pivot) {
+            int tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+            ++i;
+        }
+    }
+    int tmp = arr[i];
+    arr[i] = arr[high];
+    arr[high] = tmp;
+    return i;
+}
+
+void quick_sort(int arr[], int low, int high) {
+    if (low >= high) return;
+    int pivot = partition(arr, low, high);
+    quick_sort(arr, low, pivot - 1);
+    quick_sort(arr, pivot + 1, high);
+}`,
+        java: `public static void quickSort(int[] arr, int low, int high) {
+    if (low >= high) {
+        return;
+    }
+    int pivotIndex = partition(arr, low, high);
+    quickSort(arr, low, pivotIndex - 1);
+    quickSort(arr, pivotIndex + 1, high);
+}
+
+private static int partition(int[] arr, int low, int high) {
+    int pivot = arr[high];
+    int i = low;
+    for (int j = low; j < high; j++) {
+        if (arr[j] <= pivot) {
+            int tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+            i++;
+        }
+    }
+    int tmp = arr[i];
+    arr[i] = arr[high];
+    arr[high] = tmp;
+    return i;
+}`,
+      },
+    },
+    heap: {
+      pseudocode: `procedure heapSort(A):
+  buildMaxHeap(A)
+  for end from length(A) - 1 downto 1 do
+    swap A[0], A[end]
+    siftDown(A, 0, end)
+
+procedure buildMaxHeap(A):
+  for i from ⌊length(A)/2⌋ - 1 downto 0 do
+    siftDown(A, i, length(A))
+
+procedure siftDown(A, root, size):
+  largest ← root
+  left ← 2·root + 1
+  right ← 2·root + 2
+  if left < size and A[left] > A[largest] then largest ← left
+  if right < size and A[right] > A[largest] then largest ← right
+  if largest ≠ root then
+    swap A[root], A[largest]
+    siftDown(A, largest, size)`,
+      implementations: {
+        python: `def heap_sort(arr):
+    def sift_down(start, end):
+        root = start
+        while True:
+            child = 2 * root + 1
+            if child >= end:
+                break
+            if child + 1 < end and arr[child] < arr[child + 1]:
+                child += 1
+            if arr[root] >= arr[child]:
+                break
+            arr[root], arr[child] = arr[child], arr[root]
+            root = child
+
+    n = len(arr)
+    for start in range(n // 2 - 1, -1, -1):
+        sift_down(start, n)
+    for end in range(n - 1, 0, -1):
+        arr[0], arr[end] = arr[end], arr[0]
+        sift_down(0, end)`,
+        c: `static void sift_down(int arr[], int start, int end) {
+    int root = start;
+    while (2 * root + 1 < end) {
+        int child = 2 * root + 1;
+        if (child + 1 < end && arr[child] < arr[child + 1]) child++;
+        if (arr[root] >= arr[child]) break;
+        int tmp = arr[root];
+        arr[root] = arr[child];
+        arr[child] = tmp;
+        root = child;
+    }
+}
+
+void heap_sort(int arr[], int n) {
+    for (int start = n / 2 - 1; start >= 0; --start)
+        sift_down(arr, start, n);
+    for (int end = n - 1; end > 0; --end) {
+        int tmp = arr[0];
+        arr[0] = arr[end];
+        arr[end] = tmp;
+        sift_down(arr, 0, end);
+    }
+}`,
+        java: `public static void heapSort(int[] arr) {
+    for (int start = arr.length / 2 - 1; start >= 0; start--) {
+        siftDown(arr, start, arr.length);
+    }
+    for (int end = arr.length - 1; end > 0; end--) {
+        int tmp = arr[0];
+        arr[0] = arr[end];
+        arr[end] = tmp;
+        siftDown(arr, 0, end);
+    }
+}
+
+private static void siftDown(int[] arr, int root, int end) {
+    while (true) {
+        int child = 2 * root + 1;
+        if (child >= end) break;
+        if (child + 1 < end && arr[child] < arr[child + 1]) child++;
+        if (arr[root] >= arr[child]) break;
+        int tmp = arr[root];
+        arr[root] = arr[child];
+        arr[child] = tmp;
+        root = child;
+    }
+}`,
+      },
+    },
+    bogo: {
+      pseudocode: `procedure bogoSort(A):
+  while not isSorted(A) do
+    shuffle(A)`,
+      implementations: {
+        python: `import random
+
+def is_sorted(arr):
+    return all(arr[i] <= arr[i + 1] for i in range(len(arr) - 1))
+
+def bogo_sort(arr):
+    while not is_sorted(arr):
+        random.shuffle(arr)`,
+        c: `int is_sorted(int arr[], int n) {
+    for (int i = 1; i < n; ++i)
+        if (arr[i - 1] > arr[i]) return 0;
+    return 1;
+}
+
+void bogo_sort(int arr[], int n) {
+    while (!is_sorted(arr, n)) {
+        for (int i = n - 1; i > 0; --i) {
+            int j = rand() % (i + 1);
+            int tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+        }
+    }
+}`,
+        java: `private static boolean isSorted(int[] arr) {
+    for (int i = 1; i < arr.length; i++) {
+        if (arr[i - 1] > arr[i]) return false;
+    }
+    return true;
+}
+
+public static void bogoSort(int[] arr) {
+    Random rand = new Random();
+    while (!isSorted(arr)) {
+        for (int i = arr.length - 1; i > 0; i--) {
+            int j = rand.nextInt(i + 1);
+            int tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+        }
     }
 }`,
       },
